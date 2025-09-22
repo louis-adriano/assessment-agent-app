@@ -1,0 +1,191 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management & Authentication
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String?
+  role          UserRole  @default(STUDENT)
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // NextAuth.js fields
+  accounts Account[]
+  sessions Session[]
+
+  // Course relationships
+  createdCourses Course[] @relation("CourseCreator")
+  enrollments    CourseEnrollment[]
+  submissions    Submission[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+// Course Management
+model Course {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Creator relationship
+  creatorId String
+  creator   User   @relation("CourseCreator", fields: [creatorId], references: [id])
+
+  // Course content
+  questions   Question[]
+  enrollments CourseEnrollment[]
+
+  @@map("courses")
+}
+
+model CourseEnrollment {
+  id         String   @id @default(cuid())
+  courseId   String
+  userId     String
+  enrolledAt DateTime @default(now())
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+  @@map("course_enrollments")
+}
+
+// Question & Base Examples
+model Question {
+  id             String         @id @default(cuid())
+  courseId       String
+  questionNumber Int
+  title          String
+  description    String
+  submissionType SubmissionType
+  assessmentPrompt String?
+  criteria       String[]       @default([])
+  redFlags       String[]       @default([])
+  conditionalChecks String[]    @default([])
+  guidance       String?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  baseExamples BaseExample[]
+  submissions  Submission[]
+
+  @@unique([courseId, questionNumber])
+  @@map("questions")
+}
+
+model BaseExample {
+  id          String  @id @default(cuid())
+  questionId  String
+  title       String
+  description String?
+  content     String  // The perfect answer content
+  fileUrl     String? // URL if it's a file-based example
+  metadata    Json?   // Additional metadata (file structure, etc.)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("base_examples")
+}
+
+// Submissions & Assessments
+model Submission {
+  id                String             @id @default(cuid())
+  questionId        String
+  userId            String
+  submissionUrl     String?
+  submissionContent String?
+  fileUrl           String?
+  status            SubmissionStatus   @default(PENDING)
+  assessmentResult  Json?              // Structured assessment result
+  confidence        Float?             // Assessment confidence score
+  processedAt       DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("submissions")
+}
+
+// Enums
+enum UserRole {
+  SUPER_ADMIN
+  COURSE_ADMIN
+  STUDENT
+}
+
+enum SubmissionType {
+  TEXT
+  DOCUMENT
+  GITHUB_REPO
+  WEBSITE
+  SCREENSHOT
+}
+
+enum SubmissionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
