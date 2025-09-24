@@ -1,103 +1,167 @@
-import Image from "next/image";
+import Link from 'next/link'
+import { getActiveCourses } from '@/lib/actions/lookup-actions'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { BookOpen, Users, CheckCircle } from 'lucide-react'
 
-export default function Home() {
+interface Course {
+  id: string
+  name: string
+  description?: string | null
+  _count: {
+    questions: number
+  }
+}
+
+export default async function HomePage() {
+  const coursesResult = await getActiveCourses()
+  const courses = coursesResult.success ? coursesResult.data : []
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Assessment Agent</h1>
+              <p className="mt-1 text-gray-600">AI-powered assessment and instant feedback</p>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" asChild>
+                <Link href="/submit">Submit Assessment</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/admin">Admin Dashboard</Link>
+              </Button>
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      </header>
+
+      <section className="py-16">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-4xl font-bold text-gray-900 mb-6">
+            Get Instant AI-Powered Feedback on Your Work
+          </h2>
+          <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+            Submit your assignments, projects, and assessments to receive detailed, 
+            constructive feedback powered by advanced AI. No registration required.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Button size="lg" asChild>
+              <Link href="/submit">
+                <CheckCircle className="mr-2 h-5 w-5" />
+                Submit Your Work
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild>
+              <Link href="#courses">Browse Courses</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-12 bg-white">
+        <div className="max-w-6xl mx-auto px-4">
+          <h3 className="text-2xl font-bold text-center text-gray-900 mb-8">How It Works</h3>
+          <div className="grid gap-8 md:grid-cols-3">
+            <div className="text-center">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <BookOpen className="h-8 w-8 text-blue-600" />
+              </div>
+              <h4 className="text-lg font-semibold mb-2">Choose Your Course</h4>
+              <p className="text-gray-600">Select from available courses and find the question you want to submit for.</p>
+            </div>
+            <div className="text-center">
+              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+              <h4 className="text-lg font-semibold mb-2">Submit Your Work</h4>
+              <p className="text-gray-600">Upload your documents, code repositories, or text responses for assessment.</p>
+            </div>
+            <div className="text-center">
+              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="h-8 w-8 text-purple-600" />
+              </div>
+              <h4 className="text-lg font-semibold mb-2">Get Instant Feedback</h4>
+              <p className="text-gray-600">Receive detailed, personalized feedback with specific areas for improvement.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="courses" className="py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h3 className="text-3xl font-bold text-gray-900 mb-4">Available Courses</h3>
+            <p className="text-gray-600">Choose from our selection of courses and start your assessment journey</p>
+          </div>
+
+          {courses.length === 0 ? (
+            <Card className="max-w-md mx-auto">
+              <CardContent className="text-center py-8">
+                <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h4 className="text-lg font-semibold mb-2">No Courses Available</h4>
+                <p className="text-gray-600 mb-4">Courses will appear here once they are created by administrators.</p>
+                <Button asChild><Link href="/admin">Admin Dashboard</Link></Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {courses.map((course: Course) => (
+                <Card key={course.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="line-clamp-2">{course.name}</CardTitle>
+                    <CardDescription className="line-clamp-3 mt-2">
+                      {course.description || 'Explore this course and test your knowledge'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <BookOpen className="h-4 w-4" />
+                        <span>{course._count.questions} Questions</span>
+                      </div>
+                      <Badge variant="secondary">Active</Badge>
+                    </div>
+                    <Button asChild className="w-full">
+                      <Link href={`/submit?courseName=${encodeURIComponent(course.name)}`}>View Questions</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <div className="text-center mt-12">
+            <p className="text-gray-600 mb-4">Ready to submit your work for any course?</p>
+            <Button size="lg" asChild><Link href="/submit">Start Assessment</Link></Button>
+          </div>
+        </div>
+      </section>
+
+      <footer className="bg-gray-900 text-white py-8">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid gap-8 md:grid-cols-2">
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Assessment Agent</h4>
+              <p className="text-gray-400 mb-4">AI-powered assessment platform providing instant, detailed feedback on student submissions across multiple formats and subjects.</p>
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
+              <div className="space-y-2">
+                <Link href="/submit" className="block text-gray-400 hover:text-white">Submit Assessment</Link>
+                <Link href="/health" className="block text-gray-400 hover:text-white">System Health</Link>
+                <Link href="/admin" className="block text-gray-400 hover:text-white">Admin Dashboard</Link>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-gray-800 pt-8 mt-8 text-center text-gray-400">
+            <p>&copy; 2024 Assessment Agent. Built with Next.js and powered by AI.</p>
+          </div>
+        </div>
       </footer>
     </div>
-  );
+  )
 }

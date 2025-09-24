@@ -1,3 +1,4 @@
+// lib/auth/config.ts - UPDATED VERSION
 import { NextAuthOptions } from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import type { Adapter } from "next-auth/adapters"
