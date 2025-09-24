@@ -1,7 +1,7 @@
 // Simple test script for Sprint 1 LLM connectivity
 // Run this with: npm run test:sprint1
 
-import { testLLMConnection } from '../services/llm-service'
+import { testLLMConnection } from '../../lib/services/llm-service'
 
 async function testSprint1() {
   console.log('Testing Sprint 1 LLM Implementation...\n')

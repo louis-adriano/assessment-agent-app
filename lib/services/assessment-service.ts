@@ -32,7 +32,7 @@ export interface EnhancedAssessmentResult extends AssessmentResult {
   }
 }
 
-// Assessment options
+// Assessment options for authenticated users
 export interface AssessmentOptions {
   userId: string
   questionId: string
@@ -42,7 +42,106 @@ export interface AssessmentOptions {
   forceReassessment?: boolean
 }
 
-// Main assessment function that integrates with database
+// Anonymous assessment options
+export interface AnonymousAssessmentOptions {
+  submissionId: string
+  questionId: string
+  submissionContent: string
+  submissionUrl?: string
+  fileUrl?: string
+  question: any // The question object with course and baseExamples
+}
+
+// NEW: Anonymous assessment function for Sprint 1
+export async function processAnonymousAssessment(options: AnonymousAssessmentOptions): Promise<EnhancedAssessmentResult> {
+  const { submissionId, submissionContent, question } = options
+
+  try {
+    // For anonymous submissions, we use a simple rate limit based on IP or session
+    // In a real implementation, you might use request IP or session ID
+    const anonymousUserId = 'anonymous_' + Date.now()
+
+    if (!LLMRateLimiter.canMakeRequest(anonymousUserId)) {
+      throw new Error('Rate limit exceeded. Please wait before submitting another assessment.')
+    }
+
+    // Record rate limit request
+    LLMRateLimiter.recordRequest(anonymousUserId)
+
+    try {
+      // Select best base example for comparison
+      const baseExample = selectBestBaseExample(question.baseExamples, question.submissionType)
+
+      // Prepare assessment request
+      const assessmentRequest: AssessmentRequest = {
+        submissionContent,
+        submissionType: question.submissionType,
+        questionTitle: question.title,
+        questionDescription: question.description,
+        assessmentPrompt: question.assessmentPrompt || undefined,
+        criteria: question.criteria,
+        redFlags: question.redFlags,
+        conditionalChecks: question.conditionalChecks,
+        baseExampleContent: baseExample?.content,
+        baseExampleMetadata: baseExample?.metadata
+      }
+
+      // Perform the assessment
+      const assessmentResult = await assessSubmission(assessmentRequest)
+
+      // Calculate criteria comparison
+      const criteriaComparison = calculateCriteriaComparison(
+        assessmentResult.criteria_met,
+        question.criteria
+      )
+
+      // Enhanced result with base example info
+      const enhancedResult: EnhancedAssessmentResult = {
+        ...assessmentResult,
+        submissionId: submissionId,
+        baseExampleUsed: baseExample?.title,
+        criteriaComparison
+      }
+
+      // Store the assessment result
+      await prisma.submission.update({
+        where: { id: submissionId },
+        data: {
+          status: SubmissionStatus.COMPLETED,
+          assessmentResult: {
+            ...assessmentResult,
+            baseExampleUsed: baseExample?.title,
+            criteriaComparison
+          },
+          confidence: assessmentResult.confidence,
+          processedAt: new Date()
+        }
+      })
+
+      return enhancedResult
+
+    } catch (assessmentError) {
+      // Update submission status to failed
+      await prisma.submission.update({
+        where: { id: submissionId },
+        data: {
+          status: SubmissionStatus.FAILED,
+          assessmentResult: {
+            error: assessmentError instanceof Error ? assessmentError.message : 'Assessment failed'
+          }
+        }
+      })
+
+      throw assessmentError
+    }
+
+  } catch (error) {
+    console.error('Anonymous assessment processing error:', error)
+    throw error
+  }
+}
+
+// Main assessment function that integrates with database (AUTHENTICATED)
 export async function processAssessment(options: AssessmentOptions): Promise<EnhancedAssessmentResult> {
   const { userId, questionId, submissionContent, submissionUrl, fileUrl, forceReassessment } = options
 
@@ -259,10 +358,13 @@ function calculateCriteriaComparison(criteriaMet: string[], totalCriteria: strin
   }
 }
 
-// Get submission history for a user
+// Get submission history for a user (ONLY FOR AUTHENTICATED USERS)
 export async function getSubmissionHistory(userId: string, courseId?: string): Promise<any[]> {
   try {
-    const whereClause: any = { userId }
+    const whereClause: any = { 
+      userId: userId,  // Only get submissions for this specific user
+      NOT: { userId: null } // Exclude anonymous submissions
+    }
     
     if (courseId) {
       whereClause.question = {
@@ -295,8 +397,8 @@ export async function getSubmissionHistory(userId: string, courseId?: string): P
   }
 }
 
-// Get detailed submission by ID
-export async function getSubmissionDetails(submissionId: string, userId: string): Promise<any> {
+// Get detailed submission by ID (HANDLES BOTH AUTHENTICATED AND ANONYMOUS)
+export async function getSubmissionDetails(submissionId: string, userId?: string): Promise<any> {
   try {
     const submission = await prisma.submission.findUnique({
       where: { id: submissionId },
@@ -319,8 +421,13 @@ export async function getSubmissionDetails(submissionId: string, userId: string)
       throw new Error('Submission not found')
     }
 
+    // If no userId provided, this is anonymous access - allow it
+    if (!userId) {
+      return submission
+    }
+
     // Check if user has permission to view this submission
-    if (submission.userId !== userId) {
+    if (submission.userId && submission.userId !== userId) {
       // Check if user is course admin or super admin
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -359,7 +466,10 @@ export async function reprocessAssessment(submissionId: string, userId: string):
       include: {
         question: {
           include: {
-            course: true
+            course: true,
+            baseExamples: {
+              orderBy: { createdAt: 'asc' }
+            }
           }
         }
       }
@@ -383,7 +493,19 @@ export async function reprocessAssessment(submissionId: string, userId: string):
       throw new Error('You do not have permission to reprocess this assessment')
     }
 
-    // Reprocess the assessment
+    // For anonymous submissions, we need to use the anonymous assessment flow
+    if (!submission.userId) {
+      return await processAnonymousAssessment({
+        submissionId: submission.id,
+        questionId: submission.questionId,
+        submissionContent: submission.submissionContent || '',
+        submissionUrl: submission.submissionUrl || undefined,
+        fileUrl: submission.fileUrl || undefined,
+        question: submission.question
+      })
+    }
+
+    // Reprocess the assessment for authenticated users
     return await processAssessment({
       userId: submission.userId,
       questionId: submission.questionId,
@@ -431,6 +553,8 @@ export async function getAssessmentAnalytics(courseId?: string, userId?: string)
 
     const analytics = {
       totalSubmissions: submissions.length,
+      anonymousSubmissions: submissions.filter(s => !s.userId).length,
+      authenticatedSubmissions: submissions.filter(s => s.userId).length,
       remarkDistribution: {
         'Excellent': 0,
         'Good': 0,
