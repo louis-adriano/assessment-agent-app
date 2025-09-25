@@ -22,10 +22,10 @@ import {
 } from 'lucide-react'
 
 interface SubmissionFormPageProps {
-  params: {
+  params: Promise<{
     courseName: string
     questionNumber: string
-  }
+  }>
 }
 
 async function handleSubmission(formData: FormData) {
@@ -307,8 +307,9 @@ function ScreenshotSubmissionForm({ question }: { question: any }) {
 }
 
 export default async function SubmissionFormPage({ params }: SubmissionFormPageProps) {
-  const courseName = decodeURIComponent(params.courseName)
-  const questionNumber = parseInt(params.questionNumber)
+  const { courseName: rawCourseName, questionNumber: rawQuestionNumber } = await params
+  const courseName = decodeURIComponent(rawCourseName)
+  const questionNumber = parseInt(rawQuestionNumber)
   
   const questionResult = await findQuestionByNumber(courseName, questionNumber)
   

@@ -21,9 +21,9 @@ import {
 } from 'lucide-react'
 
 interface ResultsPageProps {
-  params: {
+  params: Promise<{
     submissionId: string
-  }
+  }>
 }
 
 function getRemarkIcon(remark: string) {
@@ -59,7 +59,8 @@ function getRemarkDescription(remark: string) {
 
 
 export default async function ResultsPage({ params }: ResultsPageProps) {
-  const result = await getAnonymousSubmissionResult(params.submissionId)
+  const { submissionId } = await params
+  const result = await getAnonymousSubmissionResult(submissionId)
 
   if (!result.success) {
     return (
@@ -139,7 +140,7 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
               </p>
             </div>
             <div className="flex gap-3">
-              <ShareResultsButton submissionId={params.submissionId} />
+              <ShareResultsButton submissionId={submissionId} />
               <Button asChild>
                 <Link href="/submit">Submit Another</Link>
               </Button>
@@ -398,7 +399,7 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
                     )}
                     <div className="flex justify-between">
                       <span>Submission ID:</span>
-                      <span className="font-mono text-xs">{params.submissionId.slice(-8)}</span>
+                      <span className="font-mono text-xs">{submissionId.slice(-8)}</span>
                     </div>
                   </CardContent>
                 </Card>

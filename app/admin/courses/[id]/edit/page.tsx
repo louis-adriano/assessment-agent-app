@@ -11,9 +11,9 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
 interface EditCoursePageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 async function handleUpdateCourse(formData: FormData) {
@@ -30,7 +30,8 @@ async function handleUpdateCourse(formData: FormData) {
 }
 
 export default async function EditCoursePage({ params }: EditCoursePageProps) {
-  const courseResult = await getCourse(params.id)
+  const { id } = await params
+  const courseResult = await getCourse(id)
 
   if (!courseResult.success) {
     return (

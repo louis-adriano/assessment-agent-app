@@ -113,6 +113,7 @@ export async function createQuestion(formData: FormData): Promise<ActionResult> 
         redFlags,
         conditionalChecks,
         guidance,
+        createdBy: user.id,
       },
       include: {
         course: {
@@ -508,6 +509,7 @@ export async function createBaseExample(formData: FormData): Promise<ActionResul
         content,
         fileUrl,
         metadata,
+        createdBy: user.id,
       },
       include: {
         question: {

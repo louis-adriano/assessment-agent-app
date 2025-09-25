@@ -140,6 +140,7 @@ async function main() {
         'If practical examples are detailed, bonus points'
       ],
       guidance: 'Look for depth of understanding and practical knowledge of AI tools in BA context.',
+      createdBy: superAdmin.id,
     },
   })
 
@@ -177,7 +178,8 @@ For requirements gathering, Claude excels at stakeholder interview analysis. Cha
         wordCount: 250,
         topics: ['Claude', 'ChatGPT', 'Gemini', 'MAS', 'pricing', 'business analysis'],
         keyPoints: ['tool comparison', 'pricing analysis', 'MAS capabilities', 'practical applications']
-      }
+      },
+      createdBy: superAdmin.id,
     },
   })
 
@@ -215,6 +217,7 @@ For requirements gathering, Claude excels at stakeholder interview analysis. Cha
         'If documentation includes BA reflection, bonus points'
       ],
       guidance: 'Focus on both technical implementation and business analysis insights.',
+      createdBy: superAdmin.id,
     },
   })
 
@@ -234,7 +237,8 @@ For requirements gathering, Claude excels at stakeholder interview analysis. Cha
         },
         features: ['dynamic skill filtering', 'format selection', 'responsive design', 'BA reflection notes'],
         technologies: ['v0.app', 'HTML5', 'CSS3', 'JavaScript', 'responsive design']
-      }
+      },
+      createdBy: superAdmin.id,
     },
   })
 
@@ -270,6 +274,7 @@ For requirements gathering, Claude excels at stakeholder interview analysis. Cha
         'If semantic elements explained well, bonus points'
       ],
       guidance: 'Look for depth of understanding and practical knowledge.',
+      createdBy: superAdmin.id,
     },
   })
 
@@ -290,7 +295,8 @@ Modern HTML also emphasizes progressive enhancement, where basic functionality w
       metadata: {
         wordCount: 150,
         topics: ['semantic elements', 'accessibility', 'best practices', 'HTML5']
-      }
+      },
+      createdBy: superAdmin.id,
     },
   })
 
@@ -328,6 +334,7 @@ Modern HTML also emphasizes progressive enhancement, where basic functionality w
         'If site is fully responsive, bonus points'
       ],
       guidance: 'Focus on code quality, organization, and functionality.',
+      createdBy: superAdmin.id,
     },
   })
 
@@ -346,7 +353,8 @@ Modern HTML also emphasizes progressive enhancement, where basic functionality w
           'images/': 'Optimized image assets'
         },
         features: ['responsive design', 'semantic HTML', 'CSS Grid/Flexbox', 'accessibility', 'performance optimization']
-      }
+      },
+      createdBy: superAdmin.id,
     },
   })
 
@@ -385,6 +393,7 @@ Modern HTML also emphasizes progressive enhancement, where basic functionality w
         'If design is professional, bonus points'
       ],
       guidance: 'Test the website thoroughly across different devices and browsers.',
+      createdBy: superAdmin.id,
     },
   })
 
@@ -401,7 +410,8 @@ Modern HTML also emphasizes progressive enhancement, where basic functionality w
           mobileScore: 95,
           desktopScore: 98
         }
-      }
+      },
+      createdBy: superAdmin.id,
     },
   })
 

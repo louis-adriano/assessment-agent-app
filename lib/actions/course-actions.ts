@@ -92,10 +92,9 @@ export async function createCourse(formData: FormData): Promise<ActionResult> {
   }
 }
 
-// Get All Courses Action (with role-based filtering)
-export async function getCourses(): Promise<ActionResult> {
+// Get All Courses Action (with role-based filtering) - internal version
+export async function getCoursesForUser(user: any): Promise<ActionResult> {
   try {
-    const user = await requireAuth()
 
     let whereClause = {}
 
@@ -133,6 +132,20 @@ export async function getCourses(): Promise<ActionResult> {
     }
   } catch (error) {
     console.error('Get courses error:', error)
+    return {
+      success: false,
+      error: 'Failed to fetch courses'
+    }
+  }
+}
+
+// Get All Courses Action (with role-based filtering)
+export async function getCourses(): Promise<ActionResult> {
+  try {
+    const user = await requireAuth()
+    return await getCoursesForUser(user)
+  } catch (error) {
+    console.error('Error fetching courses:', error)
     return {
       success: false,
       error: 'Failed to fetch courses'

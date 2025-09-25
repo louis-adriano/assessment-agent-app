@@ -19,10 +19,10 @@ import {
 } from 'lucide-react'
 
 interface QuestionDetailPageProps {
-  params: {
+  params: Promise<{
     courseName: string
     questionNumber: string
-  }
+  }>
 }
 
 function getSubmissionTypeIcon(submissionType: string) {
@@ -59,8 +59,9 @@ function getSubmissionTypeDescription(submissionType: string) {
 }
 
 export default async function QuestionDetailPage({ params }: QuestionDetailPageProps) {
-  const courseName = decodeURIComponent(params.courseName)
-  const questionNumber = parseInt(params.questionNumber)
+  const { courseName: rawCourseName, questionNumber: rawQuestionNumber } = await params
+  const courseName = decodeURIComponent(rawCourseName)
+  const questionNumber = parseInt(rawQuestionNumber)
   
   const questionResult = await findQuestionByNumber(courseName, questionNumber)
   

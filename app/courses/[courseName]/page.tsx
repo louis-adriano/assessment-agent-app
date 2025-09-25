@@ -7,13 +7,14 @@ import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, FileText, Play, Clock, CheckCircle, ArrowRight, BookOpen } from 'lucide-react'
 
 interface CourseDetailPageProps {
-  params: {
+  params: Promise<{
     courseName: string
-  }
+  }>
 }
 
 export default async function CourseDetailPage({ params }: CourseDetailPageProps) {
-  const courseName = decodeURIComponent(params.courseName)
+  const { courseName: rawCourseName } = await params
+  const courseName = decodeURIComponent(rawCourseName)
   
   // Get course information
   const courseResult = await findCourseByName(courseName)

@@ -6,13 +6,14 @@ import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Plus, FileText, Users, Calendar, Edit } from 'lucide-react'
 
 interface CourseDetailPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default async function CourseDetailPage({ params }: CourseDetailPageProps) {
-  const courseResult = await getCourse(params.id)
+  const { id } = await params
+  const courseResult = await getCourse(id)
 
   if (!courseResult.success) {
     return (

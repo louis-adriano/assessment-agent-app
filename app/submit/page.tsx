@@ -25,10 +25,10 @@ interface Question {
 }
 
 interface SubmitPageProps {
-  searchParams: {
+  searchParams: Promise<{
     courseName?: string
     questionNumber?: string
-  }
+  }>
 }
 
 async function handleSubmission(formData: FormData) {
@@ -44,7 +44,7 @@ async function handleSubmission(formData: FormData) {
 }
 
 export default async function SubmitPage({ searchParams }: SubmitPageProps) {
-  const { courseName, questionNumber } = searchParams
+  const { courseName, questionNumber } = await searchParams
   
   let question: Question | null = null
   let course: Course | null = null
