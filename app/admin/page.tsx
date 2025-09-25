@@ -1,3 +1,4 @@
+// app/admin/page.tsx
 import Link from 'next/link'
 import { getCoursesForUser } from '@/lib/actions/course-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -6,7 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { BookOpen, Users, FileText, BarChart3, Plus, TrendingUp, Clock, CheckCircle } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth/utils'
-
 
 async function getDashboardStats() {
   try {
@@ -379,11 +379,11 @@ export default async function AdminDashboard() {
             </Button>
             
             <Button variant="outline" className="justify-start h-auto p-4" asChild>
-              <Link href="/test">
+              <Link href="/health">
                 <CheckCircle className="mr-3 h-5 w-5" />
                 <div className="text-left">
-                  <div className="font-medium">System Test</div>
-                  <div className="text-xs text-gray-600">Check system health</div>
+                  <div className="font-medium">System Health</div>
+                  <div className="text-xs text-gray-600">Check system status</div>
                 </div>
               </Link>
             </Button>
