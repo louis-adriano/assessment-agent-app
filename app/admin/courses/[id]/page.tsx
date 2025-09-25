@@ -3,7 +3,7 @@ import { getCourse } from '@/lib/actions/course-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Plus, FileText, Users, Calendar, Edit } from 'lucide-react'
+import { ArrowLeft, Plus, FileText, Users, Edit } from 'lucide-react'
 
 interface CourseDetailPageProps {
   params: Promise<{
@@ -81,7 +81,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                 <h4 className="font-medium mb-1">Statistics</h4>
                 <div className="text-sm text-gray-600 space-y-1">
                   <div className="flex justify-between">
-                    <span>Questions:</span>
+                    <span>Assessments:</span>
                     <span>{course._count.questions}</span>
                   </div>
                   <div className="flex justify-between">
@@ -103,9 +103,9 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                   </Link>
                 </Button>
                 <Button variant="outline" className="w-full" asChild>
-                  <Link href={`/admin/courses/${course.id}/questions/new`}>
+                  <Link href={`/admin/courses/${course.id}/assessments/new`}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Question
+                    Add Assessment
                   </Link>
                 </Button>
               </div>
@@ -113,33 +113,33 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
           </Card>
         </div>
 
-        {/* Questions */}
+        {/* Assessments */}
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Questions ({course.questions.length})</CardTitle>
+                <CardTitle>Assessments ({course.questions.length})</CardTitle>
                 <Button size="sm" asChild>
-                  <Link href={`/admin/courses/${course.id}/questions/new`}>
+                  <Link href={`/admin/courses/${course.id}/assessments/new`}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Question
+                    Add Assessment
                   </Link>
                 </Button>
               </div>
               <CardDescription>
-                Assessment questions for this course
+                Assessment tasks for this course
               </CardDescription>
             </CardHeader>
             <CardContent>
               {course.questions.length === 0 ? (
                 <div className="text-center py-8">
                   <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No questions yet</h3>
-                  <p className="text-gray-600 mb-4">Add questions to start accepting student submissions</p>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No assessments yet</h3>
+                  <p className="text-gray-600 mb-4">Add assessments to start accepting student submissions</p>
                   <Button asChild>
-                    <Link href={`/admin/courses/${course.id}/questions/new`}>
+                    <Link href={`/admin/courses/${course.id}/assessments/new`}>
                       <Plus className="mr-2 h-4 w-4" />
-                      Add First Question
+                      Add First Assessment
                     </Link>
                   </Button>
                 </div>
@@ -150,7 +150,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium">Question {question.questionNumber}</h4>
+                            <h4 className="font-medium">Assessment {question.questionNumber}</h4>
                             <Badge variant="outline" className="text-xs">
                               {question.submissionType.replace('_', ' ').toLowerCase()}
                             </Badge>
@@ -171,10 +171,10 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                         </div>
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" asChild>
-                            <Link href={`/admin/questions/${question.id}`}>View</Link>
+                            <Link href={`/admin/courses/${course.id}/assessments/${question.id}`}>View</Link>
                           </Button>
                           <Button variant="outline" size="sm" asChild>
-                            <Link href={`/admin/questions/${question.id}/edit`}>Edit</Link>
+                            <Link href={`/admin/courses/${course.id}/assessments/${question.id}/edit`}>Edit</Link>
                           </Button>
                         </div>
                       </div>

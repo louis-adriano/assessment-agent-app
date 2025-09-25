@@ -1,4 +1,4 @@
-import { findCourseByName, findQuestionByNumber } from '@/lib/actions/lookup-actions'
+import { findQuestionByNumber } from '@/lib/actions/lookup-actions'
 import { submitAnonymousAssessment } from '@/lib/actions/submission-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,7 @@ interface Question {
 interface SubmitPageProps {
   searchParams: Promise<{
     courseName?: string
-    questionNumber?: string
+    assessmentNumber?: string
   }>
 }
 
@@ -44,14 +44,14 @@ async function handleSubmission(formData: FormData) {
 }
 
 export default async function SubmitPage({ searchParams }: SubmitPageProps) {
-  const { courseName, questionNumber } = await searchParams
+  const { courseName, assessmentNumber } = await searchParams
   
   let question: Question | null = null
   let course: Course | null = null
   let error: string | null = null
 
-  if (courseName && questionNumber) {
-    const questionResult = await findQuestionByNumber(courseName, parseInt(questionNumber))
+  if (courseName && assessmentNumber) {
+    const questionResult = await findQuestionByNumber(courseName, parseInt(assessmentNumber))
     if (questionResult.success) {
       question = questionResult.data
       course = question ? question.course : null
@@ -68,7 +68,7 @@ export default async function SubmitPage({ searchParams }: SubmitPageProps) {
           <p className="mt-2 text-gray-600">Submit your work and get instant AI-powered feedback</p>
         </div>
 
-        {!courseName || !questionNumber ? (
+        {!courseName || !assessmentNumber ? (
           <Card className="max-w-2xl mx-auto">
             <CardHeader>
               <CardTitle>Find Your Assessment</CardTitle>
@@ -88,14 +88,14 @@ export default async function SubmitPage({ searchParams }: SubmitPageProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="questionNumber">Question Number</Label>
+                    <Label htmlFor="assessmentNumber">Assessment Number</Label>
                     <Input
-                      id="questionNumber"
-                      name="questionNumber"
+                      id="assessmentNumber"
+                      name="assessmentNumber"
                       type="number"
                       placeholder="1"
                       min="1"
-                      defaultValue={questionNumber || ''}
+                      defaultValue={assessmentNumber || ''}
                       required
                     />
                   </div>
@@ -123,7 +123,7 @@ export default async function SubmitPage({ searchParams }: SubmitPageProps) {
               <Card>
                 <CardHeader>
                   <CardTitle>{course.name}</CardTitle>
-                  <CardDescription>Question {question.questionNumber}</CardDescription>
+                  <CardDescription>Assessment {question.questionNumber}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -159,7 +159,7 @@ export default async function SubmitPage({ searchParams }: SubmitPageProps) {
                 <CardContent>
                   <form action={handleSubmission} className="space-y-4">
                     <input type="hidden" name="courseName" value={courseName} />
-                    <input type="hidden" name="questionNumber" value={questionNumber} />
+                    <input type="hidden" name="assessmentNumber" value={assessmentNumber} />
                     
                     {question.submissionType === 'TEXT' && (
                       <div className="space-y-2">

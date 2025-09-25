@@ -116,7 +116,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                   <Button className="w-full" asChild>
                     <Link href={`/submit?courseName=${encodeURIComponent(courseName)}`}>
                       <Play className="mr-2 h-4 w-4" />
-                      Start First Question
+                      Start First Assessment
                     </Link>
                   </Button>
                 </div>
@@ -150,7 +150,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
               </Card>
             ) : (
               <div className="space-y-4">
-                {questions.map((question: any, index: number) => (
+                {questions.map((question: any) => (
                   <Card key={question.id} className="hover:shadow-lg transition-all duration-200">
                     <CardHeader>
                       <div className="flex items-start justify-between">
@@ -197,7 +197,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                             </Link>
                           </Button>
                           <Button size="sm" asChild>
-                            <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&questionNumber=${question.questionNumber}`}>
+                            <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${question.questionNumber}`}>
                               <ArrowRight className="mr-2 h-4 w-4" />
                               Start
                             </Link>
@@ -230,13 +230,13 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                   </p>
                   <div className="flex gap-4 justify-center">
                     <Button size="lg" asChild>
-                      <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&questionNumber=1`}>
-                        Start Question 1
+                      <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=1`}>
+                        Start Assessment 1
                       </Link>
                     </Button>
                     <Button size="lg" variant="outline" asChild>
                       <Link href={`/submit?courseName=${encodeURIComponent(courseName)}`}>
-                        Choose Question
+                        Choose Assessment
                       </Link>
                     </Button>
                   </div>

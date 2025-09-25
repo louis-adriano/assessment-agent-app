@@ -88,7 +88,7 @@ export default async function PublicCoursesPage() {
                       <div className="flex items-center justify-between text-sm text-gray-600">
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4" />
-                          <span>{course._count.questions} Questions</span>
+                          <span>{course._count.questions} Assessments</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4" />

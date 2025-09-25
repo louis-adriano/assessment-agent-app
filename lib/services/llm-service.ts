@@ -90,7 +90,7 @@ export function buildAssessmentPrompt(request: AssessmentRequest): string {
 
   let prompt = `You are an expert educational assessor. Please evaluate the following student submission.
 
-**QUESTION CONTEXT:**
+**ASSESSMENT CONTEXT:**
 Title: ${questionTitle}
 Description: ${questionDescription}
 Submission Type: ${submissionType}

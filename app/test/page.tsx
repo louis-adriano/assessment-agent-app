@@ -1,10 +1,10 @@
 import { findCourseByName, findQuestionByNumber, getCourseQuestions } from '@/lib/actions/lookup-actions'
-import { submitAnonymousAssessment, getAnonymousSubmissionResult } from '@/lib/actions/submission-actions'
+import { submitAnonymousAssessment } from '@/lib/actions/submission-actions'
 import { testLLMConnection } from '@/lib/services/llm-service'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { CheckCircle, XCircle } from 'lucide-react'
 import Link from 'next/link'
 
 // Add proper type definitions
@@ -53,7 +53,7 @@ async function testSprint1Functions() {
     }
   }
   
-  // Test 3: Find question by course name and number
+  // Test 3: Find assessment by course name and number
   try {
     const questionResult = await findQuestionByNumber('Business Analyst', 1)
     tests.questionResult = {
@@ -88,7 +88,7 @@ async function testSprint1Functions() {
   return tests
 }
 
-async function TestSubmissionForm({ courseName, questionNumber }: { courseName: string, questionNumber: number }) {
+async function TestSubmissionForm({ courseName, assessmentNumber }: { courseName: string, assessmentNumber: number }) {
   async function handleSubmit(formData: FormData): Promise<void> {
     'use server'
     console.log('Submitting test assessment...')
@@ -105,7 +105,7 @@ async function TestSubmissionForm({ courseName, questionNumber }: { courseName: 
       <CardContent>
         <form action={handleSubmit} className="space-y-4">
           <input type="hidden" name="courseName" value={courseName} />
-          <input type="hidden" name="questionNumber" value={questionNumber} />
+          <input type="hidden" name="assessmentNumber" value={assessmentNumber} />
           
           <div>
             <label htmlFor="submissionContent" className="block text-sm font-medium mb-2">
@@ -181,7 +181,7 @@ export default async function TestPage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">Question Lookup</span>
+                  <span className="font-medium">Assessment Lookup</span>
                   <div className="flex items-center gap-2">
                     {testResults.questionResult.success ? (
                       <CheckCircle className="h-5 w-5 text-green-600" />
@@ -229,7 +229,7 @@ export default async function TestPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm">AS-1.1: Public Course & Question Lookup</span>
+                  <span className="text-sm">AS-1.1: Public Course & Assessment Lookup</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-600" />
@@ -262,7 +262,7 @@ export default async function TestPage() {
         <div className="space-y-6">
           {/* Test submission form */}
           {testResults.questionResult.success && (
-            <TestSubmissionForm courseName="Business Analyst" questionNumber={1} />
+            <TestSubmissionForm courseName="Business Analyst" assessmentNumber={1} />
           )}
 
           {/* Quick Links */}
@@ -289,7 +289,7 @@ export default async function TestPage() {
                   <Link href="/auth/signin">Sign In</Link>
                 </Button>
                 <Button asChild variant="outline" size="sm">
-                  <Link href="/submit?courseName=Business%20Analyst&questionNumber=1">
+                  <Link href="/submit?courseName=Business%20Analyst&assessmentNumber=1">
                     Direct Test
                   </Link>
                 </Button>

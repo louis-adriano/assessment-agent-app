@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { 
   ArrowLeft, 
   FileText, 
-  Github,
+  GitBranch,
   Globe,
   Image,
   FileIcon,
@@ -24,7 +24,7 @@ import {
 interface SubmissionFormPageProps {
   params: Promise<{
     courseName: string
-    questionNumber: string
+    assessmentNumber: string
   }>
 }
 
@@ -43,7 +43,7 @@ async function handleSubmission(formData: FormData) {
 function getSubmissionTypeIcon(submissionType: string) {
   switch (submissionType) {
     case 'GITHUB_REPO':
-      return <Github className="h-5 w-5" />
+      return <GitBranch className="h-5 w-5" />
     case 'WEBSITE':
       return <Globe className="h-5 w-5" />
     case 'SCREENSHOT':
@@ -97,7 +97,7 @@ function GitHubSubmissionForm({ question }: { question: any }) {
     <div className="space-y-6">
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <Github className="h-5 w-5 text-gray-700 mt-0.5" />
+          <GitBranch className="h-5 w-5 text-gray-700 mt-0.5" />
           <div>
             <h4 className="font-medium text-gray-900 mb-1">GitHub Repository Submission</h4>
             <p className="text-gray-700 text-sm mb-2">
@@ -307,11 +307,11 @@ function ScreenshotSubmissionForm({ question }: { question: any }) {
 }
 
 export default async function SubmissionFormPage({ params }: SubmissionFormPageProps) {
-  const { courseName: rawCourseName, questionNumber: rawQuestionNumber } = await params
+  const { courseName: rawCourseName, assessmentNumber: rawQuestionNumber } = await params
   const courseName = decodeURIComponent(rawCourseName)
-  const questionNumber = parseInt(rawQuestionNumber)
+  const assessmentNumber = parseInt(rawQuestionNumber)
   
-  const questionResult = await findQuestionByNumber(courseName, questionNumber)
+  const questionResult = await findQuestionByNumber(courseName, assessmentNumber)
   
   if (!questionResult.success) {
     notFound()
@@ -326,7 +326,7 @@ export default async function SubmissionFormPage({ params }: SubmissionFormPageP
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/courses/${encodeURIComponent(courseName)}/${questionNumber}`}>
+              <Link href={`/courses/${encodeURIComponent(courseName)}/${assessmentNumber}`}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Question Details
               </Link>
@@ -334,7 +334,7 @@ export default async function SubmissionFormPage({ params }: SubmissionFormPageP
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-1">
                 <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-semibold text-sm">
-                  {questionNumber}
+                  {assessmentNumber}
                 </div>
                 <h1 className="text-2xl font-bold text-gray-900">{question.title}</h1>
               </div>
@@ -368,7 +368,7 @@ export default async function SubmissionFormPage({ params }: SubmissionFormPageP
               <CardContent>
                 <form action={handleSubmission} className="space-y-6">
                   <input type="hidden" name="courseName" value={courseName} />
-                  <input type="hidden" name="questionNumber" value={questionNumber} />
+                  <input type="hidden" name="assessmentNumber" value={assessmentNumber} />
                   
                   {/* Dynamic Form Based on Submission Type */}
                   {question.submissionType === 'TEXT' && <TextSubmissionForm question={question} />}

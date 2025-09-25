@@ -12,7 +12,7 @@ import {
   CheckCircle, 
   AlertCircle, 
   Info,
-  Github,
+  GitBranch,
   Globe,
   Image,
   FileIcon
@@ -21,14 +21,14 @@ import {
 interface QuestionDetailPageProps {
   params: Promise<{
     courseName: string
-    questionNumber: string
+    assessmentNumber: string
   }>
 }
 
 function getSubmissionTypeIcon(submissionType: string) {
   switch (submissionType) {
     case 'GITHUB_REPO':
-      return <Github className="h-5 w-5" />
+      return <GitBranch className="h-5 w-5" />
     case 'WEBSITE':
       return <Globe className="h-5 w-5" />
     case 'SCREENSHOT':
@@ -59,11 +59,11 @@ function getSubmissionTypeDescription(submissionType: string) {
 }
 
 export default async function QuestionDetailPage({ params }: QuestionDetailPageProps) {
-  const { courseName: rawCourseName, questionNumber: rawQuestionNumber } = await params
+  const { courseName: rawCourseName, assessmentNumber: rawAssessmentNumber } = await params
   const courseName = decodeURIComponent(rawCourseName)
-  const questionNumber = parseInt(rawQuestionNumber)
+  const assessmentNumber = parseInt(rawAssessmentNumber)
   
-  const questionResult = await findQuestionByNumber(courseName, questionNumber)
+  const questionResult = await findQuestionByNumber(courseName, assessmentNumber)
   
   if (!questionResult.success) {
     notFound()
@@ -86,7 +86,7 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-1">
                 <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-semibold text-sm">
-                  {questionNumber}
+                  {assessmentNumber}
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900">{question.title}</h1>
               </div>
@@ -98,7 +98,7 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
               </div>
             </div>
             <Button asChild>
-              <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&questionNumber=${questionNumber}`}>
+              <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${assessmentNumber}`}>
                 <Play className="mr-2 h-4 w-4" />
                 Start Assessment
               </Link>
@@ -111,14 +111,14 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid gap-8 lg:grid-cols-3">
           
-          {/* Question Content */}
+          {/* Assessment Content */}
           <div className="lg:col-span-2">
-            {/* Question Description */}
+            {/* Assessment Description */}
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Info className="h-5 w-5" />
-                  Question Description
+                  Assessment Description
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -237,23 +237,23 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button className="w-full" asChild>
-                    <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&questionNumber=${questionNumber}`}>
+                    <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${assessmentNumber}`}>
                       <Play className="mr-2 h-4 w-4" />
                       Start Assessment
                     </Link>
                   </Button>
                   <Button variant="outline" className="w-full" asChild>
                     <Link href={`/courses/${encodeURIComponent(courseName)}`}>
-                      View All Questions
+                      View All Assessments
                     </Link>
                   </Button>
                 </CardContent>
               </Card>
 
-              {/* Question Info */}
+              {/* Assessment Info */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Question Details</CardTitle>
+                  <CardTitle>Assessment Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -262,8 +262,8 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                   </div>
                   
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Question Number</h4>
-                    <p className="text-gray-600 text-sm">#{questionNumber}</p>
+                    <h4 className="font-medium text-gray-900 mb-2">Assessment Number</h4>
+                    <p className="text-gray-600 text-sm">#{assessmentNumber}</p>
                   </div>
                   
                   <div>
@@ -399,14 +399,14 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
               </p>
               <div className="flex gap-4 justify-center">
                 <Button size="lg" asChild>
-                  <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&questionNumber=${questionNumber}`}>
+                  <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${assessmentNumber}`}>
                     <Play className="mr-2 h-4 w-4" />
                     Start Assessment
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
                   <Link href={`/courses/${encodeURIComponent(courseName)}`}>
-                    View Other Questions
+                    View Other Assessments
                   </Link>
                 </Button>
               </div>

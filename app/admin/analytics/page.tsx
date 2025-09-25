@@ -2,17 +2,14 @@
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Users, 
-  FileText, 
-  Clock,
+import {
+  BarChart3,
+  TrendingUp,
+  Users,
+  FileText,
   CheckCircle,
-  Star,
   Target,
-  Calendar,
+  Clock,
   Activity
 } from 'lucide-react'
 

@@ -121,12 +121,12 @@ export default async function HomePage() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <BookOpen className="h-4 w-4" />
-                        <span>{course._count.questions} Questions</span>
+                        <span>{course._count.questions} Assessments</span>
                       </div>
                       <Badge variant="secondary">Active</Badge>
                     </div>
                     <Button asChild className="w-full">
-                      <Link href={`/submit?courseName=${encodeURIComponent(course.name)}`}>View Questions</Link>
+                      <Link href={`/submit?courseName=${encodeURIComponent(course.name)}`}>View Assessments</Link>
                     </Button>
                   </CardContent>
                 </Card>

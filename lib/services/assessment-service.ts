@@ -165,11 +165,11 @@ export async function processAssessment(options: AssessmentOptions): Promise<Enh
     })
 
     if (!question) {
-      throw new Error('Question not found')
+      throw new Error('Assessment not found')
     }
 
     if (!question.isActive) {
-      throw new Error('Question is not active for submissions')
+      throw new Error('Assessment is not active for submissions')
     }
 
     // Check if user is enrolled in the course

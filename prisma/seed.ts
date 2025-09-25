@@ -358,7 +358,7 @@ Modern HTML also emphasizes progressive enhancement, where basic functionality w
     },
   })
 
-  // Create Website Question
+  // Create Website Assessment
   const webWebsiteQuestion = await prisma.question.upsert({
     where: {
       courseId_questionNumber: {
@@ -515,8 +515,8 @@ For accessibility, you can add alt text to images so screen readers can understa
   console.log('- "Business Analyst" (BA course with AI tools questions)')
   console.log('- "Web Development" (HTML, portfolio, deployment questions)')
   console.log('\n🧪 Anonymous Testing:')
-  console.log('- Try: Course="Business Analyst", Question=1 (AI Tools Essay)')
-  console.log('- Try: Course="Web Development", Question=1 (HTML Essay)')
+  console.log('- Try: Course="Business Analyst", Assessment=1 (AI Tools Essay)')
+  console.log('- Try: Course="Web Development", Assessment=1 (HTML Essay)')
   console.log('- Sample anonymous submissions created for testing')
 }
 

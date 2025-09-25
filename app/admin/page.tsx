@@ -4,13 +4,13 @@ import { getCoursesForUser } from '@/lib/actions/course-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { BookOpen, Users, FileText, BarChart3, Plus, TrendingUp, Clock, CheckCircle } from 'lucide-react'
+import { BookOpen, FileText, BarChart3, Plus, TrendingUp, CheckCircle } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth/utils'
 
 async function getDashboardStats() {
   try {
-    const [courseCount, questionCount, submissionCount, activeSubmissions] = await Promise.all([
+    const [courseCount, assessmentCount, submissionCount, activeSubmissions] = await Promise.all([
       prisma.course.count(),
       prisma.question.count(),
       prisma.submission.count(),
@@ -70,7 +70,7 @@ async function getDashboardStats() {
 
     return {
       courseCount,
-      questionCount,
+      assessmentCount,
       submissionCount,
       activeSubmissions,
       recentSubmissions,
@@ -81,7 +81,7 @@ async function getDashboardStats() {
     console.error('Dashboard stats error:', error)
     return {
       courseCount: 0,
-      questionCount: 0,
+      assessmentCount: 0,
       submissionCount: 0,
       activeSubmissions: 0,
       recentSubmissions: [],
@@ -144,11 +144,11 @@ export default async function AdminDashboard() {
 
         <Card className="border-l-4 border-l-green-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Questions</CardTitle>
+            <CardTitle className="text-sm font-medium">Assessments</CardTitle>
             <FileText className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.questionCount}</div>
+            <div className="text-2xl font-bold">{stats.assessmentCount}</div>
             <p className="text-xs text-muted-foreground">
               Across all courses
             </p>
@@ -243,7 +243,7 @@ export default async function AdminDashboard() {
                   <div key={submission.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50">
                     <div className="flex-1">
                       <h4 className="font-medium text-sm">
-                        {submission.question.course.name} - Q{submission.question.questionNumber}
+                        {submission.question.course.name} - Assessment {submission.question.questionNumber}
                       </h4>
                       <p className="text-xs text-gray-600 truncate">
                         {submission.question.title}
@@ -321,7 +321,7 @@ export default async function AdminDashboard() {
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="flex items-center justify-between text-xs text-gray-600 mb-3">
-                      <span>{course._count.questions} questions</span>
+                      <span>{course._count.questions} assessments</span>
                       <span>{course._count.enrollments} enrolled</span>
                     </div>
                     <div className="flex gap-2">
@@ -359,11 +359,11 @@ export default async function AdminDashboard() {
             </Button>
             
             <Button variant="outline" className="justify-start h-auto p-4" asChild>
-              <Link href="/admin/questions">
+              <Link href="/admin/assessments">
                 <FileText className="mr-3 h-5 w-5" />
                 <div className="text-left">
-                  <div className="font-medium">Manage Questions</div>
-                  <div className="text-xs text-gray-600">Edit assessment questions</div>
+                  <div className="font-medium">Manage Assessments</div>
+                  <div className="text-xs text-gray-600">Edit assessment tasks</div>
                 </div>
               </Link>
             </Button>

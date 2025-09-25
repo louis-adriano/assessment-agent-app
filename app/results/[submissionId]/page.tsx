@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
 import { getAnonymousSubmissionResult } from '@/lib/actions/submission-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

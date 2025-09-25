@@ -3,7 +3,7 @@ import { getCourses } from '@/lib/actions/course-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { BookOpen, Plus, Users, FileText, Calendar, MoreHorizontal, Eye, Edit, BarChart3 } from 'lucide-react'
+import { BookOpen, Plus, Users, FileText, Calendar, Eye, Edit, BarChart3 } from 'lucide-react'
 
 export default async function CoursesPage() {
   const coursesResult = await getCourses()
@@ -68,7 +68,7 @@ export default async function CoursesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Questions</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Assessments</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -98,7 +98,7 @@ export default async function CoursesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Questions</CardTitle>
+            <CardTitle className="text-sm font-medium">Avg Assessments</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -153,7 +153,7 @@ export default async function CoursesPage() {
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div className="p-3 bg-blue-50 rounded-lg">
                       <div className="text-lg font-bold text-blue-600">{course._count.questions}</div>
-                      <div className="text-xs text-blue-800">Questions</div>
+                      <div className="text-xs text-blue-800">Assessments</div>
                     </div>
                     <div className="p-3 bg-green-50 rounded-lg">
                       <div className="text-lg font-bold text-green-600">{course._count.enrollments}</div>

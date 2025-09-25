@@ -8,7 +8,7 @@ import { processAnonymousAssessment } from '@/lib/services/assessment-service'
 // Validation schema for anonymous submissions
 const anonymousSubmissionSchema = z.object({
   courseName: z.string().min(1, 'Course name is required'),
-  questionNumber: z.number().int().positive('Question number must be positive'),
+  assessmentNumber: z.number().int().positive('Assessment number must be positive'),
   submissionContent: z.string().min(1, 'Submission content is required'),
   submissionUrl: z.string().url().optional(),
 })
@@ -25,7 +25,7 @@ export async function submitAnonymousAssessment(formData: FormData): Promise<Act
   try {
     const validatedFields = anonymousSubmissionSchema.safeParse({
       courseName: formData.get('courseName'),
-      questionNumber: Number(formData.get('questionNumber')),
+      assessmentNumber: Number(formData.get('assessmentNumber')),
       submissionContent: formData.get('submissionContent'),
       submissionUrl: formData.get('submissionUrl') || undefined,
     })
@@ -37,7 +37,7 @@ export async function submitAnonymousAssessment(formData: FormData): Promise<Act
       }
     }
 
-    const { courseName, questionNumber, submissionContent, submissionUrl } = validatedFields.data
+    const { courseName, assessmentNumber, submissionContent, submissionUrl } = validatedFields.data
 
     // Find the question
     const question = await prisma.question.findFirst({
@@ -49,7 +49,7 @@ export async function submitAnonymousAssessment(formData: FormData): Promise<Act
           },
           isActive: true
         },
-        questionNumber: questionNumber,
+        questionNumber: assessmentNumber,
         isActive: true
       },
       include: {
