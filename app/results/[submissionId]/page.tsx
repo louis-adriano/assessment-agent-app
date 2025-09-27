@@ -61,7 +61,7 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
   const { submissionId } = await params
   const result = await getAnonymousSubmissionResult(submissionId)
 
-  if (!result.success) {
+  if (!result) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100">
         <div className="max-w-4xl mx-auto px-4 py-16">
@@ -90,7 +90,7 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
     )
   }
 
-  const submission = result.data
+  const submission = result
   const assessmentResult = submission.assessmentResult as any
 
   // Handle processing state

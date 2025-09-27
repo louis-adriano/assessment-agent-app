@@ -1,428 +1,320 @@
-// lib/actions/question-actions.ts
-'use server'
+import { Course, Question, BaseExample, Submission } from '@prisma/client';
+import { assessSubmission as llmAssessSubmission } from '@/lib/services/llm-service';
+import { githubService, GitHubRepoInfo } from '@/lib/services/github-service';
 
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth/utils'
-import { revalidatePath } from 'next/cache'
-import { SubmissionType } from '@prisma/client'
+export interface AssessmentResult {
+  remark: 'Excellent' | 'Good' | 'Can Improve' | 'Needs Improvement';
+  feedback: string;
+  detailedAssessment?: any;
+}
 
-// Type-safe submission type options based on your actual Prisma enum
-type SubmissionTypeInput = SubmissionType
+export interface CriteriaAnalysis {
+  criterion: string;
+  status: 'Met' | 'Partially Met' | 'Not Met';
+  details: string;
+}
 
-export async function createQuestion(data: {
-  courseId: string
-  questionNumber: number
-  title: string
-  description: string
-  submissionType: SubmissionTypeInput
-  assessmentPrompt: string
-  criteria: string[]
-  redFlags: string[]
-  conditionalChecks: string[]
-  guidance: string
-}) {
-  const user = await getCurrentUser()
-  if (!user) {
-    throw new Error('Unauthorized')
+export interface GitHubAssessmentData {
+  repoInfo: GitHubRepoInfo;
+  codeQuality: any;
+  submission: {
+    submissionType: string;
+    submissionUrl: string;
+    questionId: string;
+  };
+}
+
+// Simple LLM Service wrapper
+class LLMService {
+  async assessSubmission(prompt: string) {
+    return await llmAssessSubmission({ prompt } as any);
   }
+}
 
-  // Check if user can create questions for this course
-  if (user.role === 'COURSE_ADMIN') {
-    // Try to find the course with possible owner field names
-    const course = await prisma.course.findFirst({
-      where: { 
-        id: data.courseId
-        // Add owner check here when you know the correct field name
-        // Example: createdBy: user.id  OR  adminId: user.id  OR  userId: user.id
+export class AssessmentService {
+  constructor(private llmService: LLMService) {}
+
+  async assessSubmission(
+    submissionContent: string,
+    submissionType: string,
+    question: Question & { baseExamples: BaseExample[], course: Course | null }
+  ): Promise<AssessmentResult> {
+    try {
+      switch (submissionType) {
+        case 'text':
+          return this.assessTextSubmission(submissionContent, question);
+        
+        case 'document':
+          return this.assessDocumentSubmission(submissionContent, question);
+        
+        case 'github_repo':
+          return this.assessGitHubRepository(submissionContent, question, question.course!);
+        
+        case 'website':
+          return this.assessWebsiteSubmission(submissionContent, question);
+        
+        case 'screenshot':
+          return this.assessScreenshotSubmission(submissionContent, question);
+        
+        default:
+          throw new Error(`Unsupported submission type: ${submissionType}`);
       }
-    })
-    
-    if (!course) {
-      throw new Error('Course not found or you do not have permission to create questions for this course')
+    } catch (error: any) {
+      console.error('Assessment error:', error);
+      return {
+        remark: 'Needs Improvement',
+        feedback: `Assessment failed: ${error.message}`,
+      };
     }
-    
-    // Additional owner check can be added here once you know the field name
-    // if (course.createdBy !== user.id) {
-    //   throw new Error('You can only create questions for your own courses')
-    // }
   }
 
-  try {
-    const question = await prisma.question.create({
-      data: {
-        courseId: data.courseId,
-        questionNumber: data.questionNumber,
-        title: data.title,
-        description: data.description,
-        submissionType: data.submissionType,
-        assessmentPrompt: data.assessmentPrompt,
-        criteria: data.criteria,
-        redFlags: data.redFlags,
-        conditionalChecks: data.conditionalChecks,
-        guidance: data.guidance,
-      },
-    })
+  async assessGitHubRepository(
+    submissionUrl: string,
+    question: Question & { baseExamples: BaseExample[] },
+    course: Course
+  ): Promise<AssessmentResult> {
+    try {
+      // Analyze the repository
+      const repoInfo = await githubService.analyzeRepository(submissionUrl);
+      const codeQuality = githubService.analyzeCodeQuality(repoInfo.files);
 
-    revalidatePath('/admin/questions')
-    revalidatePath(`/admin/courses/${data.courseId}`)
-    
-    return { success: true, question }
-  } catch (error) {
-    console.error('Error creating question:', error)
-    return { success: false, error: 'Failed to create question' }
-  }
-}
+      // Find base example for comparison
+      const baseExample = question.baseExamples.find(
+        example => example.title.toLowerCase().includes('github') || example.content.toLowerCase().includes('github')
+      );
 
-export async function updateQuestion(
-  questionId: string,
-  data: {
-    title: string
-    description: string
-    submissionType: SubmissionTypeInput
-    assessmentPrompt: string
-    criteria: string[]
-    redFlags: string[]
-    conditionalChecks: string[]
-    guidance: string
-  }
-) {
-  const user = await getCurrentUser()
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+      // Create assessment prompt
+      const prompt = this.createGitHubAssessmentPrompt(
+        repoInfo,
+        codeQuality,
+        question,
+        baseExample
+      );
 
-  // Check if user can update this question
-  if (user.role === 'COURSE_ADMIN') {
-    const question = await prisma.question.findFirst({
-      where: { id: questionId },
-      include: { course: true }
-    })
-    
-    if (!question) {
-      throw new Error('Assessment not found')
+      // Get AI assessment
+      const aiResponse = await this.llmService.assessSubmission(prompt);
+
+      // Store detailed assessment data
+      const assessmentData: GitHubAssessmentData = {
+        repoInfo,
+        codeQuality,
+        submission: {
+          submissionType: 'github_repo',
+          submissionUrl,
+          questionId: question.id,
+        },
+      };
+
+      return {
+        remark: this.parseRemark(aiResponse.remark),
+        feedback: aiResponse.feedback,
+        detailedAssessment: assessmentData,
+      };
+    } catch (error: any) {
+      console.error('GitHub assessment error:', error);
+      return {
+        remark: 'Needs Improvement',
+        feedback: `Unable to assess repository: ${error.message}. Please check that the repository is public and accessible.`,
+        detailedAssessment: null,
+      };
     }
-    
-    // Add owner check here when you know the correct field name
-    // if (question.course.createdBy !== user.id) {
-    //   throw new Error('You can only update questions from your own courses')
-    // }
   }
 
-  try {
-    const question = await prisma.question.update({
-      where: { id: questionId },
-      data: {
-        title: data.title,
-        description: data.description,
-        submissionType: data.submissionType,
-        assessmentPrompt: data.assessmentPrompt,
-        criteria: data.criteria,
-        redFlags: data.redFlags,
-        conditionalChecks: data.conditionalChecks,
-        guidance: data.guidance,
-      },
-    })
+  private createGitHubAssessmentPrompt(
+    repoInfo: GitHubRepoInfo,
+    codeQuality: any,
+    question: Question,
+    baseExample?: BaseExample
+  ): string {
+    const baseExampleSection = baseExample ? `
+BASE EXAMPLE FOR COMPARISON:
+Perfect Answer: ${baseExample.description}
+Expected Code Structure: ${baseExample.content}
+Key Requirements: Example requirements
+` : '';
 
-    revalidatePath('/admin/questions')
-    revalidatePath(`/admin/courses/${question.courseId}`)
-    
-    return { success: true, question }
-  } catch (error) {
-    console.error('Error updating question:', error)
-    return { success: false, error: 'Failed to update question' }
-  }
-}
+    return `
+ASSESSMENT TASK: Evaluate GitHub Repository Submission
 
-export async function deleteQuestion(questionId: string) {
-  const user = await getCurrentUser()
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+COURSE: Course Information
+QUESTION: ${question.title}
+REQUIREMENTS: ${question.description}
+ASSESSMENT CRITERIA: ${question.assessmentPrompt}
 
-  try {
-    // Get question with course info for permission check
-    const question = await prisma.question.findFirst({
-      where: { id: questionId },
-      include: { course: true }
-    })
+${baseExampleSection}
 
-    if (!question) {
-      throw new Error('Assessment not found')
-    }
+REPOSITORY ANALYSIS:
+Repository: ${repoInfo.owner}/${repoInfo.repo}
+Languages: ${JSON.stringify(repoInfo.languages, null, 2)}
 
-    // Check if user can delete this question
-    if (user.role === 'COURSE_ADMIN') {
-      // Add owner check here when you know the correct field name
-      // if (question.course.createdBy !== user.id) {
-      //   throw new Error('You can only delete questions from your own courses')
-      // }
-    }
+CODE QUALITY METRICS:
+- Has README: ${codeQuality.hasReadme ? 'Yes' : 'No'}
+- Has Tests: ${codeQuality.hasTests ? 'Yes' : 'No'}
+- Has Documentation: ${codeQuality.hasDocumentation ? 'Yes' : 'No'}
+- Total Lines of Code: ${codeQuality.codeLineCount}
+- Number of Files: ${codeQuality.fileCount}
+- Language Distribution: ${JSON.stringify(codeQuality.languageDistribution)}
 
-    await prisma.question.delete({
-      where: { id: questionId }
-    })
+REPOSITORY STRUCTURE:
+${repoInfo.structure}
 
-    revalidatePath('/admin/questions')
-    revalidatePath(`/admin/courses/${question.courseId}`)
-    
-    return { success: true }
-  } catch (error) {
-    console.error('Error deleting question:', error)
-    return { success: false, error: 'Failed to delete question' }
-  }
-}
+README CONTENT:
+${repoInfo.readme || 'No README found'}
 
-// Base Example Management
-export async function createBaseExample(data: {
-  questionId: string
-  title: string
-  content: string
-  metadata?: Record<string, any>
-}) {
-  const user = await getCurrentUser()
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+KEY CODE FILES:
+${repoInfo.files.slice(0, 5).map((file: any) => `
+File: ${file.path}
+Content Preview (first 500 chars):
+${file.content.substring(0, 500)}
+${file.content.length > 500 ? '...' : ''}
+`).join('\n')}
 
-  // Check if user can create base examples for this question
-  if (user.role === 'COURSE_ADMIN') {
-    const question = await prisma.question.findFirst({
-      where: { id: data.questionId },
-      include: { course: true }
-    })
-    
-    if (!question) {
-      throw new Error('Assessment not found')
-    }
-    
-    // Add owner check here when you know the correct field name
-    // if (question.course.createdBy !== user.id) {
-    //   throw new Error('You can only create base examples for your own course questions')
-    // }
-  }
+ASSESSMENT REQUIREMENTS:
+1. Code functionality and correctness
+2. Code quality and best practices
+3. Repository organization and structure
+4. Documentation quality (README, comments)
+5. Following the specific requirements in the question
+${baseExample ? '6. Comparison with the provided base example' : ''}
 
-  try {
-    const baseExample = await prisma.baseExample.create({
-      data: {
-        questionId: data.questionId,
-        title: data.title,
-        content: data.content,
-        metadata: data.metadata || {},
-        // Note: Removed 'createdBy' field as it doesn't exist in the BaseExample model
-      },
-    })
-
-    revalidatePath(`/admin/questions/${data.questionId}`)
-    revalidatePath(`/admin/courses`)
-    
-    return { success: true, baseExample }
-  } catch (error) {
-    console.error('Error creating base example:', error)
-    return { success: false, error: 'Failed to create base example' }
-  }
-}
-
-export async function updateBaseExample(
-  baseExampleId: string,
-  data: {
-    title: string
-    content: string
-      metadata?: Record<string, any>
-  }
-) {
-  const user = await getCurrentUser()
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  // Check if user can update this base example
-  if (user.role === 'COURSE_ADMIN') {
-    const baseExample = await prisma.baseExample.findFirst({
-      where: { id: baseExampleId },
-      include: { 
-        question: { 
-          include: { course: true } 
-        } 
-      }
-    })
-    
-    if (!baseExample) {
-      throw new Error('Base example not found')
-    }
-    
-    // Add owner check here when you know the correct field name
-    // if (baseExample.question.course.createdBy !== user.id) {
-    //   throw new Error('You can only update base examples from your own courses')
-    // }
-  }
-
-  try {
-    const baseExample = await prisma.baseExample.update({
-      where: { id: baseExampleId },
-      data: {
-        title: data.title,
-        content: data.content,
-        metadata: data.metadata || {},
-      },
-    })
-
-    revalidatePath(`/admin/questions/${baseExample.questionId}`)
-    
-    return { success: true, baseExample }
-  } catch (error) {
-    console.error('Error updating base example:', error)
-    return { success: false, error: 'Failed to update base example' }
-  }
-}
-
-export async function deleteBaseExample(baseExampleId: string) {
-  const user = await getCurrentUser()
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  try {
-    const baseExample = await prisma.baseExample.findFirst({
-      where: { id: baseExampleId },
-      include: { 
-        question: { 
-          include: { course: true } 
-        } 
-      }
-    })
-
-    if (!baseExample) {
-      throw new Error('Base example not found')
-    }
-
-    // Check if user can delete this base example
-    if (user.role === 'COURSE_ADMIN') {
-      // Add owner check here when you know the correct field name
-      // if (baseExample.question.course.createdBy !== user.id) {
-      //   throw new Error('You can only delete base examples from your own courses')
-      // }
-    }
-
-    await prisma.baseExample.delete({
-      where: { id: baseExampleId }
-    })
-
-    revalidatePath(`/admin/questions/${baseExample.questionId}`)
-    
-    return { success: true }
-  } catch (error) {
-    console.error('Error deleting base example:', error)
-    return { success: false, error: 'Failed to delete base example' }
-  }
-}
-
-export async function getQuestionsForUser() {
-  const user = await getCurrentUser()
-  if (!user) return []
-
-  let whereClause: any = {}
-
-  // Super admins see all questions, course admins see only their questions
-  if (user.role === 'COURSE_ADMIN') {
-    // This will need to be updated once you know the correct field name
-    // whereClause = {
-    //   course: {
-    //     createdBy: user.id  // or adminId or userId
-    //   }
-    // }
-  }
-
-  const questions = await prisma.question.findMany({
-    where: whereClause,
-    include: {
-      course: {
-        select: {
-          id: true,
-          name: true,
-          // createdBy: true  // uncomment when you know the correct field name
-        }
-      },
-      _count: {
-        select: {
-          submissions: true,
-          baseExamples: true
-        }
-      }
+Please provide assessment in this JSON format:
+{
+  "remark": "Excellent|Good|Can Improve|Needs Improvement",
+  "feedback": "Short, actionable, course-specific feedback focusing on code quality, functionality, and documentation",
+  "criteriaAnalysis": [
+    {
+      "criterion": "Code Functionality",
+      "status": "Met|Partially Met|Not Met",
+      "details": "Specific details about this criterion"
     },
-    orderBy: [
-      { course: { name: 'asc' } },
-      { questionNumber: 'asc' }
-    ]
-  })
-
-  return questions
-}
-
-export async function getQuestionById(questionId: string) {
-  const user = await getCurrentUser()
-  if (!user) return null
-
-  let whereClause: any = { id: questionId }
-
-  // Course admins can only see questions from their courses
-  if (user.role === 'COURSE_ADMIN') {
-    // This will need to be updated once you know the correct field name
-    // whereClause = {
-    //   id: questionId,
-    //   course: {
-    //     createdBy: user.id  // or adminId or userId
-    //   }
-    // }
-  }
-
-  const question = await prisma.question.findFirst({
-    where: whereClause,
-    include: {
-      course: {
-        select: {
-          id: true,
-          name: true,
-          // createdBy: true  // uncomment when you know the correct field name
-        }
-      },
-      baseExamples: {
-        orderBy: {
-          createdAt: 'desc'
-        }
-      },
-      _count: {
-        select: {
-          submissions: true,
-          baseExamples: true
-        }
-      }
+    {
+      "criterion": "Code Quality",
+      "status": "Met|Partially Met|Not Met", 
+      "details": "Specific details about code structure, best practices"
+    },
+    {
+      "criterion": "Documentation",
+      "status": "Met|Partially Met|Not Met",
+      "details": "Quality of README and code comments"
+    },
+    {
+      "criterion": "Repository Organization",
+      "status": "Met|Partially Met|Not Met",
+      "details": "File structure and project organization"
     }
-  })
-
-  return question
+  ]
 }
 
-// Helper function to get available submission types from your Prisma enum
-export function getSubmissionTypes(): SubmissionType[] {
-  // This returns the actual enum values from your Prisma schema
-  // You may need to adjust these based on your actual SubmissionType enum
-  return ['DOCUMENT', 'GITHUB_REPO', 'SCREENSHOT', 'TEXT', 'WEBSITE'] as SubmissionType[]
-}
-
-// Helper function to format submission type for display
-export function formatSubmissionType(type: SubmissionType): string {
-  switch (type) {
-    case 'DOCUMENT':
-      return 'Document'
-    case 'GITHUB_REPO':
-      return 'GitHub Repository'
-    case 'SCREENSHOT':
-      return 'Screenshot'
-    case 'TEXT':
-      return 'Text'
-    case 'WEBSITE':
-      return 'Website'
-    default:
-      return type
+Focus on practical, actionable feedback that helps the student improve their code and development practices.
+`;
   }
+
+  private async assessTextSubmission(
+    submissionContent: string,
+    question: Question & { baseExamples: BaseExample[] }
+  ): Promise<AssessmentResult> {
+    const baseExample = question.baseExamples.find(
+      example => example.title.toLowerCase().includes('text') || example.content.toLowerCase().includes('text')
+    );
+
+    const prompt = this.createTextAssessmentPrompt(submissionContent, question, baseExample);
+    const aiResponse = await this.llmService.assessSubmission(prompt);
+
+    return {
+      remark: this.parseRemark(aiResponse.remark),
+      feedback: aiResponse.feedback,
+      criteriaAnalysis: aiResponse.criteriaAnalysis || [],
+    };
+  }
+
+  private async assessDocumentSubmission(
+    submissionContent: string,
+    question: Question & { baseExamples: BaseExample[] }
+  ): Promise<AssessmentResult> {
+    // For now, treat document as text - will enhance in AS-3.2
+    return this.assessTextSubmission(submissionContent, question);
+  }
+
+  private async assessWebsiteSubmission(
+    submissionContent: string,
+    question: Question & { baseExamples: BaseExample[] }
+  ): Promise<AssessmentResult> {
+    // Placeholder for website assessment - will implement in AS-3.3
+    return {
+      remark: 'Needs Improvement',
+      feedback: 'Website assessment not yet implemented',
+      criteriaAnalysis: [],
+    };
+  }
+
+  private async assessScreenshotSubmission(
+    submissionContent: string,
+    question: Question & { baseExamples: BaseExample[] }
+  ): Promise<AssessmentResult> {
+    // Placeholder for screenshot assessment - will implement in AS-3.3
+    return {
+      remark: 'Needs Improvement',
+      feedback: 'Screenshot assessment not yet implemented',
+      criteriaAnalysis: [],
+    };
+  }
+
+  private createTextAssessmentPrompt(
+    submissionContent: string,
+    question: Question,
+    baseExample?: BaseExample
+  ): string {
+    const baseExampleSection = baseExample ? `
+BASE EXAMPLE FOR COMPARISON:
+Perfect Answer: ${baseExample.description}
+Example Content: ${baseExample.content}
+Key Points: Example key points
+` : '';
+
+    return `
+ASSESSMENT TASK: Evaluate Text Submission
+
+COURSE: Course Information
+QUESTION: ${question.title}
+REQUIREMENTS: ${question.description}
+ASSESSMENT CRITERIA: ${question.assessmentPrompt}
+
+${baseExampleSection}
+
+STUDENT SUBMISSION:
+${submissionContent}
+
+Please provide assessment in this JSON format:
+{
+  "remark": "Excellent|Good|Can Improve|Needs Improvement",
+  "feedback": "Short, actionable, course-specific feedback",
+  "criteriaAnalysis": [
+    {
+      "criterion": "Content Quality",
+      "status": "Met|Partially Met|Not Met",
+      "details": "Specific details about this criterion"
+    }
+  ]
+}
+`;
+  }
+
+  private parseRemark(aiRemark: string): 'Excellent' | 'Good' | 'Can Improve' | 'Needs Improvement' {
+    const cleaned = aiRemark.toLowerCase().trim();
+    
+    if (cleaned.includes('excellent')) return 'Excellent';
+    if (cleaned.includes('good')) return 'Good';
+    if (cleaned.includes('can improve') || cleaned.includes('could improve')) return 'Can Improve';
+    
+    return 'Needs Improvement';
+  }
+}
+
+const llmService = new LLMService();
+export const assessmentService = new AssessmentService(llmService);
+
+// Question management functions
+export async function createQuestion(data: any) {
+  // TODO: Implement question creation
+  return { success: false, error: 'Not implemented yet' };
 }

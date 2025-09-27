@@ -1,191 +1,260 @@
-'use server'
+'use server';
 
-import { z } from 'zod'
-import { prisma } from '@/lib/prisma'
-import { SubmissionStatus } from '@prisma/client'
-import { processAnonymousAssessment } from '@/lib/services/assessment-service'
+import { prisma } from '@/lib/prisma';
+import { assessmentService } from '@/lib/actions/assessment.actions';
+import { githubService } from '@/lib/services/github-service';
+import { validateGitHubUrl } from '@/lib/utils/github-validation';
+import { revalidatePath } from 'next/cache';
 
-// Validation schema for anonymous submissions
-const anonymousSubmissionSchema = z.object({
-  courseName: z.string().min(1, 'Course name is required'),
-  assessmentNumber: z.number().int().positive('Assessment number must be positive'),
-  submissionContent: z.string().min(1, 'Submission content is required'),
-  submissionUrl: z.string().url().optional(),
-})
-
-// Types
-type ActionResult<T = any> = {
-  success: boolean
-  data?: T
-  error?: string
+export interface SubmissionResult {
+  success: boolean;
+  submissionId?: string;
+  remark?: string;
+  feedback?: string;
+  criteriaAnalysis?: any[];
+  error?: string;
 }
 
-// Anonymous submission - no authentication required
-export async function submitAnonymousAssessment(formData: FormData): Promise<ActionResult> {
+export async function submitAssessment(
+  courseName: string,
+  questionNumber: number,
+  submissionContent: string,
+  submissionType: string
+): Promise<SubmissionResult> {
   try {
-    const validatedFields = anonymousSubmissionSchema.safeParse({
-      courseName: formData.get('courseName'),
-      assessmentNumber: Number(formData.get('assessmentNumber')),
-      submissionContent: formData.get('submissionContent'),
-      submissionUrl: formData.get('submissionUrl') || undefined,
-    })
+    // Find course by name
+    const course = await prisma.course.findFirst({
+      where: {
+        name: {
+          contains: courseName,
+          mode: 'insensitive',
+        },
+      },
+    });
 
-    if (!validatedFields.success) {
+    if (!course) {
       return {
         success: false,
-        error: 'Invalid form data: ' + validatedFields.error.errors.map(e => e.message).join(', ')
-      }
+        error: 'Course not found. Please check the course name.',
+      };
     }
 
-    const { courseName, assessmentNumber, submissionContent, submissionUrl } = validatedFields.data
-
-    // Find the question
+    // Find question by course and question number
     const question = await prisma.question.findFirst({
       where: {
-        course: {
-          name: {
-            equals: courseName.trim(),
-            mode: 'insensitive'
-          },
-          isActive: true
-        },
-        questionNumber: assessmentNumber,
-        isActive: true
+        courseId: course.id,
+        questionNumber: questionNumber,
       },
       include: {
-        course: {
-          select: { id: true, name: true }
-        },
-        baseExamples: {
-          orderBy: { createdAt: 'asc' }
-        }
-      }
-    })
+        baseExamples: true,
+        course: true,
+      },
+    });
 
     if (!question) {
       return {
         success: false,
-        error: 'Question not found or not available'
-      }
+        error: `Question ${questionNumber} not found in course "${courseName}".`,
+      };
     }
 
-    // Create anonymous submission (userId is null)
+    // Validate submission type matches question
+    if (question.submissionType !== submissionType) {
+      return {
+        success: false,
+        error: `Invalid submission type. Expected: ${question.submissionType}, got: ${submissionType}`,
+      };
+    }
+
+    // Validate submission content based on type
+    let processedContent = submissionContent;
+    let assessmentResult;
+
+    switch (submissionType) {
+      case 'TEXT':
+        if (!submissionContent.trim()) {
+          return {
+            success: false,
+            error: 'Text submission cannot be empty.',
+          };
+        }
+        break;
+
+      case 'GITHUB_REPO':
+        // Validate GitHub URL
+        const githubValidation = validateGitHubUrl(submissionContent);
+        if (!githubValidation.isValid) {
+          return {
+            success: false,
+            error: githubValidation.error || 'Invalid GitHub repository URL.',
+          };
+        }
+        break;
+
+      case 'WEBSITE':
+        // Validate website URL
+        try {
+          new URL(submissionContent);
+        } catch {
+          return {
+            success: false,
+            error: 'Please provide a valid website URL.',
+          };
+        }
+        break;
+
+      case 'DOCUMENT':
+        if (!submissionContent.trim()) {
+          return {
+            success: false,
+            error: 'Document content cannot be empty.',
+          };
+        }
+        break;
+
+      case 'SCREENSHOT':
+        if (!submissionContent.trim()) {
+          return {
+            success: false,
+            error: 'Screenshot/image content cannot be empty.',
+          };
+        }
+        break;
+
+      default:
+        return {
+          success: false,
+          error: `Unsupported submission type: ${submissionType}`,
+        };
+    }
+
+    // Assess the submission
+    assessmentResult = await assessmentService.assessSubmission(
+      processedContent,
+      submissionType,
+      question
+    );
+
+    // Create submission record (anonymous - no userId required)
     const submission = await prisma.submission.create({
       data: {
         questionId: question.id,
-        userId: null as any,
-        submissionContent,
-        submissionUrl,
-        status: SubmissionStatus.PROCESSING
-      }
-    })
+        submissionContent: processedContent,
+        submissionUrl: submissionType === 'GITHUB_REPO' || submissionType === 'WEBSITE' ? processedContent : undefined,
+        status: 'COMPLETED',
+        assessmentResult: JSON.parse(JSON.stringify({
+          remark: assessmentResult.remark,
+          feedback: assessmentResult.feedback,
+          criteriaAnalysis: assessmentResult.criteriaAnalysis,
+          detailedAssessment: assessmentResult.detailedAssessment,
+        })),
+        // userId is optional - null for anonymous submissions
+        userId: null,
+      },
+    });
 
-    // Process the assessment anonymously
-    const assessmentResult = await processAnonymousAssessment({
-      submissionId: submission.id,
-      questionId: question.id,
-      submissionContent,
-      submissionUrl,
-      question: question
-    })
+    // Revalidate relevant paths
+    revalidatePath(`/courses/${courseName}`);
+    revalidatePath(`/submit/${courseName}/${questionNumber}`);
 
     return {
       success: true,
-      data: assessmentResult // Don't duplicate submissionId since it's already in assessmentResult
-    }
+      submissionId: submission.id,
+      remark: assessmentResult.remark,
+      feedback: assessmentResult.feedback,
+      criteriaAnalysis: assessmentResult.criteriaAnalysis,
+    };
 
-  } catch (error) {
-    console.error('Anonymous submission error:', error)
+  } catch (error: any) {
+    console.error('Submission error:', error);
     return {
       success: false,
-      error: 'Failed to process submission. Please try again.'
-    }
+      error: 'An error occurred while processing your submission. Please try again.',
+    };
   }
 }
 
-// Get anonymous submission result by ID
-export async function getAnonymousSubmissionResult(submissionId: string): Promise<ActionResult> {
+export async function getSubmissionById(submissionId: string) {
   try {
-    if (!submissionId) {
-      return {
-        success: false,
-        error: 'Submission ID is required'
-      }
-    }
-
     const submission = await prisma.submission.findUnique({
-      where: { id: submissionId },
+      where: {
+        id: submissionId,
+      },
       include: {
         question: {
-          select: {
-            title: true,
-            questionNumber: true,
-            submissionType: true,
-            course: {
-              select: { name: true }
-            }
-          }
-        }
-      }
-    })
+          include: {
+            course: true,
+          },
+        },
+      },
+    });
 
     if (!submission) {
-      return {
-        success: false,
-        error: 'Submission not found'
-      }
+      throw new Error('Submission not found');
     }
 
-    return {
-      success: true,
-      data: submission
-    }
+    return submission;
   } catch (error) {
-    console.error('Get submission result error:', error)
-    return {
-      success: false,
-      error: 'Failed to fetch submission result'
-    }
+    console.error('Error fetching submission:', error);
+    throw error;
   }
 }
 
-// Check submission status (for processing submissions)
-export async function checkSubmissionStatus(submissionId: string): Promise<ActionResult> {
+export async function getRecentSubmissions(limit: number = 10) {
   try {
-    if (!submissionId) {
-      return {
-        success: false,
-        error: 'Submission ID is required'
-      }
-    }
+    const submissions = await prisma.submission.findMany({
+      take: limit,
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        question: {
+          include: {
+            course: true,
+          },
+        },
+      },
+    });
 
-    const submission = await prisma.submission.findUnique({
-      where: { id: submissionId },
-      select: {
-        id: true,
-        status: true,
-        assessmentResult: true,
-        processedAt: true,
-        createdAt: true
-      }
-    })
-
-    if (!submission) {
-      return {
-        success: false,
-        error: 'Submission not found'
-      }
-    }
-
-    return {
-      success: true,
-      data: submission
-    }
+    return submissions;
   } catch (error) {
-    console.error('Check submission status error:', error)
-    return {
-      success: false,
-      error: 'Failed to check submission status'
+    console.error('Error fetching recent submissions:', error);
+    throw error;
+  }
+}
+
+// Legacy exports for backward compatibility
+export async function submitAnonymousAssessment(formData: FormData) {
+  const courseName = formData.get('courseName') as string;
+  const assessmentNumber = Number(formData.get('assessmentNumber') || formData.get('questionNumber'));
+  const submissionContent = formData.get('submissionContent') as string;
+  const submissionUrl = formData.get('submissionUrl') as string;
+
+  // Debug logging
+  console.log('Form submission data:', {
+    courseName,
+    assessmentNumber,
+    submissionContent,
+    submissionUrl,
+    submissionUrlType: typeof submissionUrl
+  });
+
+  // Determine submission type based on content
+  let submissionType = 'TEXT';
+  if (submissionUrl) {
+    if (submissionUrl.includes('github.com')) {
+      submissionType = 'GITHUB_REPO';
+    } else {
+      submissionType = 'WEBSITE';
     }
   }
+
+  const contentToSubmit = submissionContent || submissionUrl;
+  console.log('Submitting:', { contentToSubmit, submissionType });
+
+  return await submitAssessment(courseName, assessmentNumber, contentToSubmit, submissionType);
+}
+
+export async function getAnonymousSubmissionResult(submissionId: string) {
+  return await getSubmissionById(submissionId);
 }

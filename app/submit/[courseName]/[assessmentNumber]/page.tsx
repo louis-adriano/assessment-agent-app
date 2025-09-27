@@ -1,506 +1,412 @@
-import { notFound, redirect } from 'next/navigation'
-import Link from 'next/link'
-import { findQuestionByNumber } from '@/lib/actions/lookup-actions'
-import { submitAnonymousAssessment } from '@/lib/actions/submission-actions'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { 
-  ArrowLeft, 
-  FileText, 
-  GitBranch,
-  Globe,
-  Image,
-  FileIcon,
-  Upload,
-  AlertCircle,
-  Info,
-  Send
-} from 'lucide-react'
+'use client';
 
-interface SubmissionFormPageProps {
-  params: Promise<{
-    courseName: string
-    assessmentNumber: string
-  }>
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Upload, GitBranch, Globe, FileText, Image } from 'lucide-react';
+import { submitAssessment } from '@/lib/actions/submission-actions';
+import { validateGitHubUrl } from '@/lib/utils/github-validation';
+
+interface Question {
+  id: string;
+  questionNumber: number;
+  title: string;
+  description: string;
+  submissionType: string;
+  assessmentPrompt: string;
+  course: {
+    id: string;
+    name: string;
+    description: string;
+  };
 }
 
-async function handleSubmission(formData: FormData) {
-  'use server'
-  
-  const result = await submitAnonymousAssessment(formData)
-  
-  if (result.success) {
-    redirect(`/results/${result.data.submissionId}`)
-  } else {
-    throw new Error(result.error || 'Failed to submit assessment')
-  }
+interface SubmissionPageProps {
+  params: {
+    courseName: string;
+    assessmentNumber: string;
+  };
 }
 
-function getSubmissionTypeIcon(submissionType: string) {
-  switch (submissionType) {
-    case 'GITHUB_REPO':
-      return <GitBranch className="h-5 w-5" />
-    case 'WEBSITE':
-      return <Globe className="h-5 w-5" />
-    case 'SCREENSHOT':
-      return <Image className="h-5 w-5" />
-    case 'DOCUMENT':
-      return <FileIcon className="h-5 w-5" />
-    case 'TEXT':
-    default:
-      return <FileText className="h-5 w-5" />
-  }
-}
+export default function SubmissionPage({ params }: SubmissionPageProps) {
+  const router = useRouter();
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submissionContent, setSubmissionContent] = useState('');
+  const [githubValidation, setGithubValidation] = useState<{
+    isValid: boolean;
+    error?: string;
+    owner?: string;
+    repo?: string;
+  } | null>(null);
 
-function TextSubmissionForm({ question }: { question: any }) {
-  return (
-    <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <FileText className="h-5 w-5 text-blue-600 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-blue-900 mb-1">Text Response Required</h4>
-            <p className="text-blue-800 text-sm">
-              Provide a comprehensive written response. Your answer will be evaluated for 
-              completeness, accuracy, and depth of understanding.
-            </p>
-          </div>
-        </div>
-      </div>
+  useEffect(() => {
+    fetchQuestion();
+  }, [params.courseName, params.assessmentNumber]);
 
-      <div className="space-y-2">
-        <Label htmlFor="submissionContent" className="text-base font-medium">
-          Your Response *
-        </Label>
-        <Textarea
-          id="submissionContent"
-          name="submissionContent"
-          rows={12}
-          placeholder="Write your detailed response here..."
-          required
-          className="min-h-[300px] text-base"
-        />
-        <p className="text-sm text-gray-600">
-          Tip: Be thorough and specific. The AI will assess your response against the question requirements.
-        </p>
-      </div>
-    </div>
-  )
-}
+  const fetchQuestion = async () => {
+    try {
+      setLoading(true);
+      // In a real app, you'd have a server action to fetch the question
+      // For now, we'll simulate it
+      const response = await fetch(`/api/questions?courseName=${params.courseName}&assessmentNumber=${params.assessmentNumber}`);
+      
+      if (!response.ok) {
+        throw new Error('Question not found');
+      }
+      
+      const data = await response.json();
+      setQuestion(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load question');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-function GitHubSubmissionForm({ question }: { question: any }) {
-  return (
-    <div className="space-y-6">
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <GitBranch className="h-5 w-5 text-gray-700 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-gray-900 mb-1">GitHub Repository Submission</h4>
-            <p className="text-gray-700 text-sm mb-2">
-              Submit a link to your GitHub repository. Make sure it includes:
-            </p>
-            <ul className="text-sm text-gray-700 space-y-1 ml-4">
-              <li>• A comprehensive README.md file</li>
-              <li>• Well-organized code structure</li>
-              <li>• Clear documentation and comments</li>
-              <li>• Working functionality as requested</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+  const handleGitHubUrlChange = (url: string) => {
+    setSubmissionContent(url);
+    
+    if (url.trim()) {
+      const validation = validateGitHubUrl(url);
+      setGithubValidation(validation);
+    } else {
+      setGithubValidation(null);
+    }
+  };
 
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="submissionUrl" className="text-base font-medium">
-            GitHub Repository URL *
-          </Label>
-          <Input
-            id="submissionUrl"
-            name="submissionUrl"
-            type="url"
-            placeholder="https://github.com/your-username/your-repository"
-            required
-            className="text-base"
-          />
-        </div>
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!question || !submissionContent.trim()) {
+      setError('Please provide your submission content');
+      return;
+    }
 
-        <div className="space-y-2">
-          <Label htmlFor="submissionContent" className="text-base font-medium">
-            Repository Description
-          </Label>
-          <Textarea
-            id="submissionContent"
-            name="submissionContent"
-            rows={6}
-            placeholder="Describe your repository: key features, technologies used, how to run it, and any special considerations..."
-            className="text-base"
-          />
-          <p className="text-sm text-gray-600">
-            Optional but recommended: Provide context about your implementation choices and features.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
+    // Additional validation for GitHub repos
+    if (question.submissionType === 'github_repo' && (!githubValidation?.isValid)) {
+      setError('Please provide a valid GitHub repository URL');
+      return;
+    }
 
-function WebsiteSubmissionForm({ question }: { question: any }) {
-  return (
-    <div className="space-y-6">
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <Globe className="h-5 w-5 text-green-600 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-green-900 mb-1">Live Website Submission</h4>
-            <p className="text-green-800 text-sm mb-2">
-              Submit a link to your live website or web application. Ensure:
-            </p>
-            <ul className="text-sm text-green-800 space-y-1 ml-4">
-              <li>• The website is publicly accessible</li>
-              <li>• All functionality works as expected</li>
-              <li>• The design is responsive and professional</li>
-              <li>• Loading times are reasonable</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+    setSubmitting(true);
+    setError(null);
 
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="submissionUrl" className="text-base font-medium">
-            Website URL *
-          </Label>
-          <Input
-            id="submissionUrl"
-            name="submissionUrl"
-            type="url"
-            placeholder="https://your-website.com or https://your-project.vercel.app"
-            required
-            className="text-base"
-          />
-        </div>
+    try {
+      const result = await submitAssessment(
+        params.courseName,
+        parseInt(params.assessmentNumber),
+        submissionContent,
+        question.submissionType
+      );
 
-        <div className="space-y-2">
-          <Label htmlFor="submissionContent" className="text-base font-medium">
-            Website Description
-          </Label>
-          <Textarea
-            id="submissionContent"
-            name="submissionContent"
-            rows={6}
-            placeholder="Describe your website: main features, technologies used, design decisions, and any special functionality..."
-            className="text-base"
-          />
-          <p className="text-sm text-gray-600">
-            Optional but recommended: Highlight key features and technical decisions for better assessment.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
+      if (result.success && result.submissionId) {
+        // Redirect to results page
+        router.push(`/results/${result.submissionId}`);
+      } else {
+        setError(result.error || 'Submission failed');
+      }
+    } catch (err: any) {
+      setError('An error occurred while submitting. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-function DocumentSubmissionForm({ question }: { question: any }) {
-  return (
-    <div className="space-y-6">
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <FileIcon className="h-5 w-5 text-purple-600 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-purple-900 mb-1">Document Submission</h4>
-            <p className="text-purple-800 text-sm">
-              You can either paste your document content directly or provide a link to 
-              an online document (Google Docs, etc.). Ensure proper formatting and completeness.
-            </p>
-          </div>
-        </div>
-      </div>
+  const getSubmissionTypeIcon = (type: string) => {
+    switch (type) {
+      case 'github_repo':
+        return <GitBranch className="w-5 h-5" />;
+      case 'website':
+        return <Globe className="w-5 h-5" />;
+      case 'document':
+        return <FileText className="w-5 h-5" />;
+      case 'screenshot':
+        return <Image className="w-5 h-5" />;
+      case 'text':
+        return <FileText className="w-5 h-5" />;
+      default:
+        return <Upload className="w-5 h-5" />;
+    }
+  };
 
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="submissionContent" className="text-base font-medium">
-            Document Content *
-          </Label>
-          <Textarea
-            id="submissionContent"
-            name="submissionContent"
-            rows={12}
-            placeholder="Paste your complete document content here..."
-            required
-            className="min-h-[300px] text-base font-mono"
-          />
-        </div>
+  const renderSubmissionForm = () => {
+    if (!question) return null;
 
-        <div className="space-y-2">
-          <Label htmlFor="submissionUrl" className="text-base font-medium">
-            Document URL (Optional)
-          </Label>
-          <Input
-            id="submissionUrl"
-            name="submissionUrl"
-            type="url"
-            placeholder="https://docs.google.com/document/... (optional)"
-            className="text-base"
-          />
-          <p className="text-sm text-gray-600">
-            If you have your document hosted online, you can include the link here.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ScreenshotSubmissionForm({ question }: { question: any }) {
-  return (
-    <div className="space-y-6">
-      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <Image className="h-5 w-5 text-orange-600 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-orange-900 mb-1">Screenshot/Visual Submission</h4>
-            <p className="text-orange-800 text-sm">
-              Provide a detailed description of your screenshot or visual work. 
-              If you have an image hosted online, you can include the link.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="submissionContent" className="text-base font-medium">
-            Visual Description *
-          </Label>
-          <Textarea
-            id="submissionContent"
-            name="submissionContent"
-            rows={8}
-            placeholder="Describe your screenshot/visual work in detail: what it shows, key elements, design decisions, functionality demonstrated..."
-            required
-            className="text-base"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="submissionUrl" className="text-base font-medium">
-            Image URL (Optional)
-          </Label>
-          <Input
-            id="submissionUrl"
-            name="submissionUrl"
-            type="url"
-            placeholder="https://example.com/your-image.png (optional)"
-            className="text-base"
-          />
-          <p className="text-sm text-gray-600">
-            If you have your image hosted online (imgur, dropbox, etc.), include the link.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default async function SubmissionFormPage({ params }: SubmissionFormPageProps) {
-  const { courseName: rawCourseName, assessmentNumber: rawQuestionNumber } = await params
-  const courseName = decodeURIComponent(rawCourseName)
-  const assessmentNumber = parseInt(rawQuestionNumber)
-  
-  const questionResult = await findQuestionByNumber(courseName, assessmentNumber)
-  
-  if (!questionResult.success) {
-    notFound()
-  }
-  
-  const question = questionResult.data
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/courses/${encodeURIComponent(courseName)}/${assessmentNumber}`}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Question Details
-              </Link>
-            </Button>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-semibold text-sm">
-                  {assessmentNumber}
-                </div>
-                <h1 className="text-2xl font-bold text-gray-900">{question.title}</h1>
-              </div>
-              <div className="flex items-center gap-4 text-gray-600">
-                <span className="text-sm">{question.course.name}</span>
-                <Badge variant="outline">
-                  {question.submissionType.replace('_', ' ').toLowerCase()}
-                </Badge>
-              </div>
+    switch (question.submissionType) {
+      case 'text':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="text-content">Your Response</Label>
+              <Textarea
+                id="text-content"
+                placeholder="Enter your text response here..."
+                value={submissionContent}
+                onChange={(e) => setSubmissionContent(e.target.value)}
+                rows={8}
+                className="min-h-[200px]"
+              />
             </div>
           </div>
+        );
+
+      case 'github_repo':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="github-url">GitHub Repository URL</Label>
+              <Input
+                id="github-url"
+                type="url"
+                placeholder="https://github.com/username/repository-name"
+                value={submissionContent}
+onChange={(e) => handleGitHubUrlChange(e.target.value)}
+                className={githubValidation?.isValid === false ? 'border-red-500' : ''}
+              />
+              {githubValidation?.isValid === false && (
+                <p className="text-sm text-red-600 mt-1">
+                  {githubValidation.error}
+                </p>
+              )}
+              {githubValidation?.isValid && (
+                <p className="text-sm text-green-600 mt-1">
+                  ✓ Valid repository: {githubValidation.owner}/{githubValidation.repo}
+                </p>
+              )}
+            </div>
+            
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-medium text-blue-900 mb-2">GitHub Repository Requirements:</h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Repository must be public and accessible</li>
+                <li>• Include a README.md with project description</li>
+                <li>• Code should be well-organized and documented</li>
+                <li>• Follow the assignment requirements specified above</li>
+              </ul>
+            </div>
+          </div>
+        );
+
+      case 'website':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="website-url">Website URL</Label>
+              <Input
+                id="website-url"
+                type="url"
+                placeholder="https://your-website.com"
+                value={submissionContent}
+                onChange={(e) => setSubmissionContent(e.target.value)}
+              />
+            </div>
+            
+            <div className="bg-green-50 p-4 rounded-lg">
+              <h4 className="font-medium text-green-900 mb-2">Website Requirements:</h4>
+              <ul className="text-sm text-green-800 space-y-1">
+                <li>• Website must be publicly accessible</li>
+                <li>• Should be fully functional and responsive</li>
+                <li>• Follow web accessibility guidelines</li>
+                <li>• Meet the specific requirements outlined above</li>
+              </ul>
+            </div>
+          </div>
+        );
+
+      case 'document':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="document-content">Document Content or URL</Label>
+              <Textarea
+                id="document-content"
+                placeholder="Paste your document content here or provide a link to your document..."
+                value={submissionContent}
+                onChange={(e) => setSubmissionContent(e.target.value)}
+                rows={8}
+                className="min-h-[200px]"
+              />
+            </div>
+            
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <h4 className="font-medium text-yellow-900 mb-2">Document Requirements:</h4>
+              <ul className="text-sm text-yellow-800 space-y-1">
+                <li>• Document should be well-structured and formatted</li>
+                <li>• Include all required sections as specified</li>
+                <li>• Use proper grammar and professional language</li>
+                <li>• Support your arguments with evidence where needed</li>
+              </ul>
+            </div>
+          </div>
+        );
+
+      case 'screenshot':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="screenshot-url">Screenshot/Image URL or Description</Label>
+              <Textarea
+                id="screenshot-url"
+                placeholder="Provide URL to your screenshot or describe your visual submission..."
+                value={submissionContent}
+                onChange={(e) => setSubmissionContent(e.target.value)}
+                rows={6}
+              />
+            </div>
+            
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <h4 className="font-medium text-purple-900 mb-2">Screenshot/Visual Requirements:</h4>
+              <ul className="text-sm text-purple-800 space-y-1">
+                <li>• Image should be clear and high quality</li>
+                <li>• Include all required visual elements</li>
+                <li>• Annotate or explain key features if needed</li>
+                <li>• Follow design principles and requirements</li>
+              </ul>
+            </div>
+          </div>
+        );
+
+      default:
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="generic-content">Submission Content</Label>
+              <Textarea
+                id="generic-content"
+                placeholder="Enter your submission content..."
+                value={submissionContent}
+                onChange={(e) => setSubmissionContent(e.target.value)}
+                rows={6}
+              />
+            </div>
+          </div>
+        );
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin" />
         </div>
-      </header>
+      </div>
+    );
+  }
 
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="grid gap-8 lg:grid-cols-3">
-          
-          {/* Submission Form */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  {getSubmissionTypeIcon(question.submissionType)}
-                  Submit Your Work
-                </CardTitle>
-                <CardDescription>
-                  Complete the form below to submit your work for AI assessment
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form action={handleSubmission} className="space-y-6">
-                  <input type="hidden" name="courseName" value={courseName} />
-                  <input type="hidden" name="assessmentNumber" value={assessmentNumber} />
-                  
-                  {/* Dynamic Form Based on Submission Type */}
-                  {question.submissionType === 'TEXT' && <TextSubmissionForm question={question} />}
-                  {question.submissionType === 'GITHUB_REPO' && <GitHubSubmissionForm question={question} />}
-                  {question.submissionType === 'WEBSITE' && <WebsiteSubmissionForm question={question} />}
-                  {question.submissionType === 'DOCUMENT' && <DocumentSubmissionForm question={question} />}
-                  {question.submissionType === 'SCREENSHOT' && <ScreenshotSubmissionForm question={question} />}
+  if (!question) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Alert>
+          <AlertDescription>
+            Assessment not found. Please check the course name and assessment number.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
-                  {/* Submit Button */}
-                  <div className="flex gap-3 pt-6">
-                    <Button type="submit" size="lg" className="flex-1">
-                      <Send className="mr-2 h-4 w-4" />
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {/* Course and Question Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+          <span>{question.course.name}</span>
+          <span>•</span>
+          <span>Assessment {question.questionNumber}</span>
+        </div>
+        <h1 className="text-3xl font-bold mb-4">{question.title}</h1>
+        <p className="text-lg text-muted-foreground">{question.course.description}</p>
+      </div>
+
+      <div className="grid gap-8 md:grid-cols-2">
+        {/* Question Details */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Assessment Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="prose prose-sm max-w-none">
+                <p>{question.description}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {getSubmissionTypeIcon(question.submissionType)}
+                Submission Type
+              </CardTitle>
+              <CardDescription>
+                {question.submissionType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="prose prose-sm max-w-none">
+                <p>{question.assessmentPrompt}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Submission Form */}
+        <div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Submit Your Work</CardTitle>
+              <CardDescription>
+                Complete your submission below to receive instant feedback
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {renderSubmissionForm()}
+
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button 
+                  type="submit" 
+                  disabled={submitting || !submissionContent.trim() || (question.submissionType === 'github_repo' && !githubValidation?.isValid)}
+                  className="w-full"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing Submission...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
                       Submit for Assessment
-                    </Button>
-                    <Button type="button" variant="outline" size="lg" asChild>
-                      <Link href={`/courses/${encodeURIComponent(courseName)}`}>
-                        Cancel
-                      </Link>
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-8 space-y-6">
-              
-              {/* Question Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Assessment Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Question</h4>
-                    <p className="text-gray-600 text-sm line-clamp-3">
-                      {question.description}
-                    </p>
-                  </div>
-
-                  {question.guidance && (
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Guidance</h4>
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                        <p className="text-amber-800 text-sm">
-                          {question.guidance}
-                        </p>
-                      </div>
-                    </div>
+                    </>
                   )}
-                </CardContent>
-              </Card>
+                </Button>
 
-              {/* What Happens Next */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Info className="h-5 w-5" />
-                    What Happens Next
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex gap-3">
-                      <div className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full font-semibold text-xs">
-                        1
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm text-gray-900">AI Assessment</p>
-                        <p className="text-xs text-gray-600">Your work is evaluated in 5-10 seconds</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-3">
-                      <div className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full font-semibold text-xs">
-                        2
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm text-gray-900">Instant Results</p>
-                        <p className="text-xs text-gray-600">See your grade and detailed feedback</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-3">
-                      <div className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full font-semibold text-xs">
-                        3
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm text-gray-900">Improve & Retry</p>
-                        <p className="text-xs text-gray-600">Make improvements and submit again</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Assessment Features */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Assessment Features</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <AlertCircle className="h-4 w-4 text-green-600" />
-                      <span>AI-powered evaluation</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <AlertCircle className="h-4 w-4 text-green-600" />
-                      <span>Instant detailed feedback</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <AlertCircle className="h-4 w-4 text-green-600" />
-                      <span>Base example comparison</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <AlertCircle className="h-4 w-4 text-green-600" />
-                      <span>Unlimited submissions</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <AlertCircle className="h-4 w-4 text-green-600" />
-                      <span>No registration required</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  Your submission will be assessed automatically and you'll receive instant feedback.
+                </p>
+              </form>
+            </CardContent>
+          </Card>
         </div>
-      </main>
+      </div>
     </div>
-  )
+  );
 }

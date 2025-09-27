@@ -37,7 +37,7 @@ async function handleSubmission(formData: FormData) {
   const result = await submitAnonymousAssessment(formData)
   
   if (result.success) {
-    redirect(`/results/${result.data.submissionId}`)
+    redirect(`/results/${result.submissionId}`)
   } else {
     throw new Error(result.error || 'Failed to submit assessment')
   }
