@@ -1,17 +1,22 @@
-import { findQuestionByNumber } from '@/lib/actions/lookup-actions'
-import { submitAnonymousAssessment } from '@/lib/actions/submission-actions'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { redirect } from 'next/navigation'
+'use client'
 
-// Add proper TypeScript interfaces
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, Github, Globe, FileText, Image, Upload, CheckCircle, XCircle } from 'lucide-react'
+import { getCourseByName } from '@/lib/actions/lookup-actions'
+import { handleFormSubmission } from '@/lib/actions/submit-page-actions'
+
 interface Course {
   id: string
   name: string
-  description?: string | null
+  description: string
+  questions: Question[]
 }
 
 interface Question {
@@ -20,267 +25,413 @@ interface Question {
   title: string
   description: string
   submissionType: string
-  guidance?: string | null
-  course: Course
+  guidance?: string
 }
 
-interface SubmitPageProps {
-  searchParams: Promise<{
-    courseName?: string
-    assessmentNumber?: string
-  }>
-}
+export default function SubmitPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [course, setCourse] = useState<Course | null>(null)
+  const [question, setQuestion] = useState<Question | null>(null)
+  const [submissionContent, setSubmissionContent] = useState('')
+  const [additionalInfo, setAdditionalInfo] = useState('')
+  const [validationError, setValidationError] = useState('')
+  const [githubValidation, setGithubValidation] = useState<{isValid: boolean, message: string} | null>(null)
 
-async function handleSubmission(formData: FormData) {
-  'use server'
-  
-  const result = await submitAnonymousAssessment(formData)
-  
-  if (result.success) {
-    redirect(`/results/${result.submissionId}`)
-  } else {
-    throw new Error(result.error || 'Failed to submit assessment')
+  // Get course and question from URL params
+  const courseName = searchParams.get('course')
+  const questionNumber = searchParams.get('question')
+
+  useEffect(() => {
+    if (courseName && questionNumber) {
+      loadCourseAndQuestion()
+    }
+  }, [courseName, questionNumber])
+
+  const loadCourseAndQuestion = async () => {
+    if (!courseName || !questionNumber) return
+
+    try {
+      const result = await getCourseByName(courseName)
+      if (result.success && result.data) {
+        setCourse(result.data)
+        const q = result.data.questions.find(
+          (q: Question) => q.questionNumber === parseInt(questionNumber)
+        )
+        if (q) {
+          setQuestion(q)
+        } else {
+          setValidationError(`Question ${questionNumber} not found in course "${courseName}"`)
+        }
+      } else {
+        setValidationError(result.error || `Course "${courseName}" not found`)
+      }
+    } catch (error) {
+      console.error('Error loading course:', error)
+      setValidationError('Failed to load course information')
+    }
   }
-}
 
-export default async function SubmitPage({ searchParams }: SubmitPageProps) {
-  const { courseName, assessmentNumber } = await searchParams
-  
-  let question: Question | null = null
-  let course: Course | null = null
-  let error: string | null = null
+  const validateGitHubUrl = (url: string) => {
+    if (!url.trim()) {
+      setGithubValidation(null)
+      return
+    }
 
-  if (courseName && assessmentNumber) {
-    const questionResult = await findQuestionByNumber(courseName, parseInt(assessmentNumber))
-    if (questionResult.success) {
-      question = questionResult.data
-      course = question ? question.course : null
+    const githubPatterns = [
+      /^https?:\/\/(www\.)?github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+\/?.*$/,
+      /^github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+\/?.*$/
+    ]
+
+    const isValid = githubPatterns.some(pattern => pattern.test(url.trim()))
+    
+    if (isValid) {
+      setGithubValidation({
+        isValid: true,
+        message: 'Valid GitHub repository URL'
+      })
     } else {
-      error = questionResult.error || 'Failed to find question'
+      setGithubValidation({
+        isValid: false,
+        message: 'Invalid GitHub URL format. Expected: https://github.com/owner/repository'
+      })
+    }
+  }
+
+  const handleGitHubUrlChange = (url: string) => {
+    setSubmissionContent(url)
+    if (question?.submissionType === 'github_repo') {
+      validateGitHubUrl(url)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    
+    if (!course || !question) {
+      setValidationError('Course or question not loaded')
+      return
+    }
+
+    if (!submissionContent.trim()) {
+      setValidationError('Submission content is required')
+      return
+    }
+
+    // GitHub-specific validation
+    if (question.submissionType === 'github_repo' && githubValidation && !githubValidation.isValid) {
+      setValidationError('Please provide a valid GitHub repository URL')
+      return
+    }
+
+    setIsSubmitting(true)
+    setValidationError('')
+
+    try {
+      const formData = new FormData()
+      formData.append('courseName', course.name)
+      formData.append('questionNumber', question.questionNumber.toString())
+      formData.append('submissionType', question.submissionType)
+      formData.append('content', submissionContent)
+      formData.append('additionalInfo', additionalInfo)
+
+      await handleFormSubmission(formData)
+    } catch (error) {
+      console.error('Submission error:', error)
+      setValidationError(error instanceof Error ? error.message : 'Failed to submit assessment')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (!courseName || !questionNumber) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">
+              Missing course or question parameters. Please access this page through a proper course link.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (validationError && !course) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <XCircle className="w-12 h-12 text-red-500 mx-auto" />
+              <p className="text-red-600">{validationError}</p>
+              <Button onClick={() => router.back()} variant="outline">
+                Go Back
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const getSubmissionIcon = (type: string) => {
+    switch (type) {
+      case 'github_repo':
+        return <Github className="w-5 h-5" />
+      case 'website':
+        return <Globe className="w-5 h-5" />
+      case 'document':
+        return <FileText className="w-5 h-5" />
+      case 'screenshot':
+        return <Image className="w-5 h-5" />
+      case 'text':
+        return <FileText className="w-5 h-5" />
+      default:
+        return <Upload className="w-5 h-5" />
+    }
+  }
+
+  const renderSubmissionField = () => {
+    if (!question) return null
+
+    switch (question.submissionType) {
+      case 'text':
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="content">Your Response</Label>
+            <Textarea
+              id="content"
+              placeholder="Enter your text response here..."
+              value={submissionContent}
+              onChange={(e) => setSubmissionContent(e.target.value)}
+              rows={8}
+              className="min-h-[200px]"
+            />
+          </div>
+        )
+
+      case 'github_repo':
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="content">GitHub Repository URL</Label>
+            <Input
+              id="content"
+              type="url"
+              placeholder="https://github.com/username/repository-name"
+              value={submissionContent}
+              onChange={(e) => handleGitHubUrlChange(e.target.value)}
+              className={githubValidation?.isValid === false ? 'border-red-500' : ''}
+            />
+            {githubValidation && (
+              <div className={`flex items-center gap-2 text-sm ${
+                githubValidation.isValid ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {githubValidation.isValid ? (
+                  <CheckCircle className="w-4 h-4" />
+                ) : (
+                  <XCircle className="w-4 h-4" />
+                )}
+                {githubValidation.message}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Provide a link to your GitHub repository. The repository should be public for assessment.
+            </p>
+          </div>
+        )
+
+      case 'website':
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="content">Website URL</Label>
+            <Input
+              id="content"
+              type="url"
+              placeholder="https://yourwebsite.com"
+              value={submissionContent}
+              onChange={(e) => setSubmissionContent(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Provide a link to your deployed website or web application.
+            </p>
+          </div>
+        )
+
+      case 'document':
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="content">Document URL or Content</Label>
+            <Textarea
+              id="content"
+              placeholder="Paste your document content here or provide a link to your document..."
+              value={submissionContent}
+              onChange={(e) => setSubmissionContent(e.target.value)}
+              rows={8}
+              className="min-h-[200px]"
+            />
+            <p className="text-xs text-muted-foreground">
+              You can paste document content directly or provide a link to a shared document (Google Docs, etc.).
+            </p>
+          </div>
+        )
+
+      case 'screenshot':
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="content">Image URL or Description</Label>
+            <Textarea
+              id="content"
+              placeholder="Provide a link to your image or describe your screenshot/diagram..."
+              value={submissionContent}
+              onChange={(e) => setSubmissionContent(e.target.value)}
+              rows={6}
+            />
+            <p className="text-xs text-muted-foreground">
+              Provide a link to your image file or describe the content of your screenshot/diagram.
+            </p>
+          </div>
+        )
+
+      default:
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="content">Submission Content</Label>
+            <Textarea
+              id="content"
+              placeholder="Enter your submission content..."
+              value={submissionContent}
+              onChange={(e) => setSubmissionContent(e.target.value)}
+              rows={6}
+            />
+          </div>
+        )
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Assessment Submission</h1>
-          <p className="mt-2 text-gray-600">Submit your work and get instant AI-powered feedback</p>
+    <div className="container mx-auto py-8 max-w-3xl">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold">Submit Assessment</h1>
+          <p className="text-muted-foreground">
+            Submit your work for automated assessment and instant feedback
+          </p>
         </div>
 
-        {!courseName || !assessmentNumber ? (
-          <Card className="max-w-2xl mx-auto">
+        {/* Course and Question Info */}
+        {course && question && (
+          <Card>
             <CardHeader>
-              <CardTitle>Find Your Assessment</CardTitle>
-              <CardDescription>Enter your course name and question number to get started</CardDescription>
+              <CardTitle className="text-lg flex items-center gap-2">
+                {getSubmissionIcon(question.submissionType)}
+                {question.title}
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{course.name}</Badge>
+                <Badge variant="secondary">Question {question.questionNumber}</Badge>
+                <Badge>{question.submissionType.replace('_', ' ')}</Badge>
+              </div>
             </CardHeader>
             <CardContent>
-              <form method="GET" className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="courseName">Course Name</Label>
-                    <Input
-                      id="courseName"
-                      name="courseName"
-                      placeholder="e.g., Business Analyst"
-                      defaultValue={courseName || ''}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="assessmentNumber">Assessment Number</Label>
-                    <Input
-                      id="assessmentNumber"
-                      name="assessmentNumber"
-                      type="number"
-                      placeholder="1"
-                      min="1"
-                      defaultValue={assessmentNumber || ''}
-                      required
-                    />
-                  </div>
-                </div>
-                <Button type="submit" className="w-full">Find Assessment</Button>
-              </form>
-            </CardContent>
-          </Card>
-        ) : error ? (
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle>Assessment Not Found</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-red-600 mb-4">{error}</p>
-              <Button asChild>
-                <a href="/submit">Try Again</a>
-              </Button>
-            </CardContent>
-          </Card>
-        ) : question && course ? (
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Assessment Details */}
-            <div className="lg:col-span-1">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{course.name}</CardTitle>
-                  <CardDescription>Assessment {question.questionNumber}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              <div className="space-y-4">
+                {question.description && (
                   <div>
-                    <h3 className="font-medium mb-2">{question.title}</h3>
-                    <p className="text-sm text-gray-600">{question.description}</p>
+                    <h4 className="font-medium mb-2">Requirements:</h4>
+                    <p className="text-sm text-muted-foreground">{question.description}</p>
                   </div>
-                  
-                  {question.guidance && (
-                    <div>
-                      <h4 className="font-medium text-sm mb-1">Guidance</h4>
-                      <p className="text-sm text-gray-600">{question.guidance}</p>
-                    </div>
-                  )}
-
-                  <div className="pt-4 border-t">
-                    <span className="inline-block px-2 py-1 text-xs bg-gray-100 rounded">
-                      {question.submissionType.replace('_', ' ').toLowerCase()}
-                    </span>
+                )}
+                {question.guidance && (
+                  <div>
+                    <h4 className="font-medium mb-2">Guidance:</h4>
+                    <p className="text-sm text-muted-foreground">{question.guidance}</p>
                   </div>
-                </CardContent>
-              </Card>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Submission Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Your Submission</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {renderSubmissionField()}
+          </CardContent>
+        </Card>
+
+        {/* Additional Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Additional Information (Optional)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="additionalInfo">Notes or Context</Label>
+              <Textarea
+                id="additionalInfo"
+                placeholder="Any additional context, notes, or explanations about your submission..."
+                value={additionalInfo}
+                onChange={(e) => setAdditionalInfo(e.target.value)}
+                rows={4}
+              />
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Submission Form */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Submit Your Work</CardTitle>
-                  <CardDescription>
-                    Upload your submission and get instant feedback
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form action={handleSubmission} className="space-y-4">
-                    <input type="hidden" name="courseName" value={courseName} />
-                    <input type="hidden" name="assessmentNumber" value={assessmentNumber} />
-                    
-                    {question.submissionType === 'TEXT' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="submissionContent">Your Answer *</Label>
-                        <Textarea
-                          id="submissionContent"
-                          name="submissionContent"
-                          rows={10}
-                          placeholder="Enter your response here..."
-                          required
-                        />
-                      </div>
-                    )}
+        {/* Validation Error */}
+        {validationError && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 text-red-600">
+                <XCircle className="w-5 h-5" />
+                <p className="font-medium">{validationError}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-                    {question.submissionType === 'GITHUB_REPO' && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="submissionUrl">GitHub Repository URL *</Label>
-                          <Input
-                            id="submissionUrl"
-                            name="submissionUrl"
-                            type="url"
-                            placeholder="https://github.com/username/repo"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="submissionContent">Description</Label>
-                          <Textarea
-                            id="submissionContent"
-                            name="submissionContent"
-                            rows={4}
-                            placeholder="Briefly describe your repository and key features..."
-                          />
-                        </div>
-                      </>
-                    )}
+        {/* Submit Button */}
+        <div className="flex justify-end space-x-4">
+          <Button type="button" variant="outline" onClick={() => router.back()}>
+            Cancel
+          </Button>
+          <Button 
+            type="submit" 
+            disabled={isSubmitting || !submissionContent.trim() || (question?.submissionType === 'github_repo' && githubValidation && !githubValidation.isValid)}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              'Submit for Assessment'
+            )}
+          </Button>
+        </div>
 
-                    {question.submissionType === 'WEBSITE' && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="submissionUrl">Website URL *</Label>
-                          <Input
-                            id="submissionUrl"
-                            name="submissionUrl"
-                            type="url"
-                            placeholder="https://your-website.com"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="submissionContent">Description</Label>
-                          <Textarea
-                            id="submissionContent"
-                            name="submissionContent"
-                            rows={4}
-                            placeholder="Describe your website's features and functionality..."
-                          />
-                        </div>
-                      </>
-                    )}
-
-                    {question.submissionType === 'DOCUMENT' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="submissionContent">Document Content *</Label>
-                        <Textarea
-                          id="submissionContent"
-                          name="submissionContent"
-                          rows={10}
-                          placeholder="Paste your document content here or provide a detailed summary..."
-                          required
-                        />
-                        <div className="space-y-2">
-                          <Label htmlFor="submissionUrl">Document URL (Optional)</Label>
-                          <Input
-                            id="submissionUrl"
-                            name="submissionUrl"
-                            type="url"
-                            placeholder="https://docs.google.com/document/..."
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {question.submissionType === 'SCREENSHOT' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="submissionContent">Description of Screenshot *</Label>
-                        <Textarea
-                          id="submissionContent"
-                          name="submissionContent"
-                          rows={6}
-                          placeholder="Describe what your screenshot shows and explain the key elements..."
-                          required
-                        />
-                        <div className="space-y-2">
-                          <Label htmlFor="submissionUrl">Image URL (if hosted online)</Label>
-                          <Input
-                            id="submissionUrl"
-                            name="submissionUrl"
-                            type="url"
-                            placeholder="https://example.com/image.png"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <Button type="submit" className="flex-1">
-                        Submit for Assessment
-                      </Button>
-                      <Button type="button" variant="outline" asChild>
-                        <a href="/submit">Start Over</a>
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
+        {/* Information */}
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <div className="text-sm space-y-2">
+              <p><strong>What happens next?</strong></p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>Your submission will be processed immediately using AI assessment</li>
+                <li>You'll receive one of four grades: Excellent, Good, Can Improve, or Needs Improvement</li>
+                <li>Detailed feedback will explain your grade and provide improvement suggestions</li>
+                <li>Your results will be available via a unique link you can save or share</li>
+                <li>No personal information is stored - submissions are anonymous</li>
+              </ul>
             </div>
-          </div>
-        ) : null}
-      </div>
+          </CardContent>
+        </Card>
+      </form>
     </div>
   )
 }

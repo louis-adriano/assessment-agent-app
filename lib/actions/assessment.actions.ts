@@ -1,320 +1,305 @@
-import { Course, Question, BaseExample, Submission } from '@prisma/client';
-import { assessSubmission as llmAssessSubmission } from '@/lib/services/llm-service';
-import { githubService, GitHubRepoInfo } from '@/lib/services/github-service';
+'use server'
 
-export interface AssessmentResult {
-  remark: 'Excellent' | 'Good' | 'Can Improve' | 'Needs Improvement';
-  feedback: string;
-  detailedAssessment?: any;
+import { revalidatePath } from 'next/cache'
+import { prisma } from '@/lib/prisma'
+import { assessmentService } from '@/lib/services/assessment-service'
+import { githubService, GitHubAssessmentData } from '@/lib/services/github-service'
+import { AssessmentResult } from '@/lib/services/llm-service'
+import { BaseExample } from '@prisma/client'
+import { z } from 'zod'
+
+// Assessment request schema
+const assessmentRequestSchema = z.object({
+  submissionId: z.string().uuid(),
+})
+
+type ActionResult<T = any> = {
+  success: boolean
+  data?: T
+  error?: string
 }
 
-export interface CriteriaAnalysis {
-  criterion: string;
-  status: 'Met' | 'Partially Met' | 'Not Met';
-  details: string;
-}
-
-export interface GitHubAssessmentData {
-  repoInfo: GitHubRepoInfo;
-  codeQuality: any;
-  submission: {
-    submissionType: string;
-    submissionUrl: string;
-    questionId: string;
-  };
-}
-
-// Simple LLM Service wrapper
-class LLMService {
-  async assessSubmission(prompt: string) {
-    return await llmAssessSubmission({ prompt } as any);
-  }
-}
-
-export class AssessmentService {
-  constructor(private llmService: LLMService) {}
-
-  async assessSubmission(
-    submissionContent: string,
-    submissionType: string,
-    question: Question & { baseExamples: BaseExample[], course: Course | null }
-  ): Promise<AssessmentResult> {
-    try {
-      switch (submissionType) {
-        case 'text':
-          return this.assessTextSubmission(submissionContent, question);
-        
-        case 'document':
-          return this.assessDocumentSubmission(submissionContent, question);
-        
-        case 'github_repo':
-          return this.assessGitHubRepository(submissionContent, question, question.course!);
-        
-        case 'website':
-          return this.assessWebsiteSubmission(submissionContent, question);
-        
-        case 'screenshot':
-          return this.assessScreenshotSubmission(submissionContent, question);
-        
-        default:
-          throw new Error(`Unsupported submission type: ${submissionType}`);
-      }
-    } catch (error: any) {
-      console.error('Assessment error:', error);
-      return {
-        remark: 'Needs Improvement',
-        feedback: `Assessment failed: ${error.message}`,
-      };
-    }
-  }
-
-  async assessGitHubRepository(
-    submissionUrl: string,
-    question: Question & { baseExamples: BaseExample[] },
-    course: Course
-  ): Promise<AssessmentResult> {
-    try {
-      // Analyze the repository
-      const repoInfo = await githubService.analyzeRepository(submissionUrl);
-      const codeQuality = githubService.analyzeCodeQuality(repoInfo.files);
-
-      // Find base example for comparison
-      const baseExample = question.baseExamples.find(
-        example => example.title.toLowerCase().includes('github') || example.content.toLowerCase().includes('github')
-      );
-
-      // Create assessment prompt
-      const prompt = this.createGitHubAssessmentPrompt(
-        repoInfo,
-        codeQuality,
-        question,
-        baseExample
-      );
-
-      // Get AI assessment
-      const aiResponse = await this.llmService.assessSubmission(prompt);
-
-      // Store detailed assessment data
-      const assessmentData: GitHubAssessmentData = {
-        repoInfo,
-        codeQuality,
-        submission: {
-          submissionType: 'github_repo',
-          submissionUrl,
-          questionId: question.id,
+/**
+ * Assess a submission and update the database
+ */
+export async function assessSubmission(submissionId: string): Promise<ActionResult<AssessmentResult>> {
+  try {
+    // Get submission with question and base examples
+    const submission = await prisma.submission.findUnique({
+      where: { id: submissionId },
+      include: {
+        question: {
+          include: {
+            baseExamples: true,
+            course: true,
+          },
         },
-      };
+      },
+    })
 
-      return {
-        remark: this.parseRemark(aiResponse.remark),
-        feedback: aiResponse.feedback,
-        detailedAssessment: assessmentData,
-      };
-    } catch (error: any) {
-      console.error('GitHub assessment error:', error);
-      return {
-        remark: 'Needs Improvement',
-        feedback: `Unable to assess repository: ${error.message}. Please check that the repository is public and accessible.`,
-        detailedAssessment: null,
-      };
+    if (!submission) {
+      return { success: false, error: 'Submission not found' }
+    }
+
+    let assessmentResult: AssessmentResult
+    let githubData: GitHubAssessmentData | undefined
+
+    // Handle GitHub repository submissions differently
+    if (submission.question.submissionType === 'github_repo') {
+      const githubResult = await assessGitHubSubmission(
+        submission.submissionContent,
+        submission.question.baseExamples,
+        submission.question
+      )
+      assessmentResult = githubResult.assessment
+      githubData = githubResult.githubData
+    } else {
+      // Use regular assessment service for other types
+      assessmentResult = await assessmentService.assessSubmission({
+        questionId: submission.questionId,
+        content: submission.submissionContent,
+        submissionType: submission.question.submissionType,
+      })
+    }
+
+    // Update submission with assessment results
+    const updatedSubmission = await prisma.submission.update({
+      where: { id: submissionId },
+      data: {
+        assessmentResult: {
+          remark: assessmentResult.remark,
+          feedback: assessmentResult.feedback,
+          criteria_met: assessmentResult.criteria_met,
+          areas_for_improvement: assessmentResult.areas_for_improvement,
+          confidence: assessmentResult.confidence,
+          processing_time_ms: assessmentResult.processing_time_ms,
+          model_used: assessmentResult.model_used,
+          // Store GitHub data in metadata if available
+          ...(githubData && {
+            metadata: {
+              github: githubData,
+            },
+          }),
+        },
+      },
+    })
+
+    revalidatePath(`/results/${submissionId}`)
+    return { success: true, data: assessmentResult }
+  } catch (error) {
+    console.error('Assessment error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Assessment failed',
     }
   }
+}
 
-  private createGitHubAssessmentPrompt(
-    repoInfo: GitHubRepoInfo,
-    codeQuality: any,
-    question: Question,
-    baseExample?: BaseExample
-  ): string {
-    const baseExampleSection = baseExample ? `
-BASE EXAMPLE FOR COMPARISON:
-Perfect Answer: ${baseExample.description}
-Expected Code Structure: ${baseExample.content}
-Key Requirements: Example requirements
-` : '';
+/**
+ * Assess GitHub repository submission with specialized logic
+ */
+async function assessGitHubSubmission(
+  repoUrl: string,
+  baseExamples: BaseExample[],
+  question: any
+): Promise<{ assessment: AssessmentResult; githubData: GitHubAssessmentData }> {
+  try {
+    // Validate GitHub URL
+    if (!githubService.isValidGitHubUrl(repoUrl)) {
+      throw new Error('Invalid GitHub repository URL')
+    }
 
-    return `
-ASSESSMENT TASK: Evaluate GitHub Repository Submission
+    // Get repository analysis
+    const githubData = await githubService.assessRepository(repoUrl)
 
-COURSE: Course Information
-QUESTION: ${question.title}
-REQUIREMENTS: ${question.description}
-ASSESSMENT CRITERIA: ${question.assessmentPrompt}
+    // Create specialized prompt for GitHub assessment
+    const githubPrompt = createGitHubAssessmentPrompt(githubData, baseExamples, question)
 
-${baseExampleSection}
+    // Get assessment from LLM service with GitHub-specific prompt
+    const assessment = await assessmentService.assessSubmission({
+      questionId: question.id,
+      content: githubPrompt,
+      submissionType: 'github_repo',
+    })
 
-REPOSITORY ANALYSIS:
-Repository: ${repoInfo.owner}/${repoInfo.repo}
-Languages: ${JSON.stringify(repoInfo.languages, null, 2)}
+    // Enhance feedback with GitHub-specific insights
+    const enhancedFeedback = enhanceGitHubFeedback(assessment.feedback, githubData)
 
-CODE QUALITY METRICS:
+    return {
+      assessment: {
+        ...assessment,
+        feedback: enhancedFeedback,
+      },
+      githubData,
+    }
+  } catch (error) {
+    console.error('GitHub assessment error:', error)
+    
+    // Return fallback assessment for GitHub errors
+    return {
+      assessment: {
+        remark: 'Needs Improvement',
+        feedback: `Unable to analyze repository: ${error instanceof Error ? error.message : 'Unknown error'}. Please ensure the repository is public and accessible.`,
+        criteria_met: [],
+        areas_for_improvement: ['Repository accessibility', 'URL validation'],
+        confidence: 0.1,
+        processing_time_ms: 0,
+        model_used: 'github-service',
+      },
+      githubData: {
+        repoInfo: {
+          owner: '',
+          repo: '',
+          files: [],
+          structure: '',
+          languages: {},
+          hasTests: false,
+          hasDocumentation: false,
+          fileCount: 0,
+          totalSize: 0,
+        },
+        codeQuality: {
+          hasReadme: false,
+          hasTests: false,
+          hasDocumentation: false,
+          mainLanguage: 'Unknown',
+          complexity: 'low',
+        },
+        structure: {
+          organized: false,
+          hasProperStructure: false,
+          fileTypes: [],
+        },
+      },
+    }
+  }
+}
+
+/**
+ * Create specialized assessment prompt for GitHub repositories
+ */
+function createGitHubAssessmentPrompt(
+  githubData: GitHubAssessmentData,
+  baseExamples: BaseExample[],
+  question: any
+): string {
+  const { repoInfo, codeQuality, structure } = githubData
+
+  // Build comprehensive prompt with repository analysis
+  let prompt = `
+GITHUB REPOSITORY ASSESSMENT
+
+Repository Analysis:
+- Owner/Repo: ${repoInfo.owner}/${repoInfo.repo}
+- Main Language: ${codeQuality.mainLanguage}
+- File Count: ${repoInfo.fileCount}
+- Total Size: ${repoInfo.totalSize} bytes
+- Complexity: ${codeQuality.complexity}
+
+Code Quality Indicators:
 - Has README: ${codeQuality.hasReadme ? 'Yes' : 'No'}
 - Has Tests: ${codeQuality.hasTests ? 'Yes' : 'No'}
 - Has Documentation: ${codeQuality.hasDocumentation ? 'Yes' : 'No'}
-- Total Lines of Code: ${codeQuality.codeLineCount}
-- Number of Files: ${codeQuality.fileCount}
-- Language Distribution: ${JSON.stringify(codeQuality.languageDistribution)}
+- Organized Structure: ${structure.organized ? 'Yes' : 'No'}
 
-REPOSITORY STRUCTURE:
+Repository Structure:
 ${repoInfo.structure}
 
-README CONTENT:
-${repoInfo.readme || 'No README found'}
+File Types Found: ${structure.fileTypes.join(', ')}
 
-KEY CODE FILES:
-${repoInfo.files.slice(0, 5).map((file: any) => `
-File: ${file.path}
-Content Preview (first 500 chars):
-${file.content.substring(0, 500)}
-${file.content.length > 500 ? '...' : ''}
+Main Files Content (first 5 files):
+${repoInfo.files.slice(0, 5).map(file => 
+  `${file.path} (${file.type}):\n${file.content.slice(0, 500)}...\n`
+).join('\n')}
+
+${repoInfo.readme ? `README Content:\n${repoInfo.readme.slice(0, 1000)}...` : 'No README found'}
+
+Question Requirements:
+${question.description}
+
+Assessment Criteria:
+${question.criteria || 'Standard code quality, functionality, and documentation assessment'}
+
+${baseExamples.length > 0 ? `
+Base Examples for Comparison:
+${baseExamples.map((example: BaseExample) => `
+Example: ${example.title}
+Content: ${example.content.slice(0, 500)}...
 `).join('\n')}
+` : ''}
 
-ASSESSMENT REQUIREMENTS:
-1. Code functionality and correctness
-2. Code quality and best practices
-3. Repository organization and structure
-4. Documentation quality (README, comments)
-5. Following the specific requirements in the question
-${baseExample ? '6. Comparison with the provided base example' : ''}
+Please assess this GitHub repository against the question requirements and provide structured feedback.
+  `
 
-Please provide assessment in this JSON format:
-{
-  "remark": "Excellent|Good|Can Improve|Needs Improvement",
-  "feedback": "Short, actionable, course-specific feedback focusing on code quality, functionality, and documentation",
-  "criteriaAnalysis": [
-    {
-      "criterion": "Code Functionality",
-      "status": "Met|Partially Met|Not Met",
-      "details": "Specific details about this criterion"
-    },
-    {
-      "criterion": "Code Quality",
-      "status": "Met|Partially Met|Not Met", 
-      "details": "Specific details about code structure, best practices"
-    },
-    {
-      "criterion": "Documentation",
-      "status": "Met|Partially Met|Not Met",
-      "details": "Quality of README and code comments"
-    },
-    {
-      "criterion": "Repository Organization",
-      "status": "Met|Partially Met|Not Met",
-      "details": "File structure and project organization"
+  return prompt
+}
+
+/**
+ * Enhance feedback with GitHub-specific insights
+ */
+function enhanceGitHubFeedback(
+  originalFeedback: string,
+  githubData: GitHubAssessmentData
+): string {
+  const { codeQuality, structure, repoInfo } = githubData
+
+  let enhancements: string[] = []
+
+  // Add specific GitHub insights
+  if (!codeQuality.hasReadme) {
+    enhancements.push('Consider adding a comprehensive README.md file to explain the project.')
+  }
+
+  if (!codeQuality.hasTests) {
+    enhancements.push('Adding unit tests would improve code reliability and maintainability.')
+  }
+
+  if (!structure.organized) {
+    enhancements.push('Organizing code into logical directories would improve project structure.')
+  }
+
+  if (repoInfo.fileCount > 50 && codeQuality.complexity === 'high') {
+    enhancements.push('For a project of this size, consider adding better documentation and code organization.')
+  }
+
+  // Combine original feedback with GitHub-specific insights
+  const enhancedFeedback = [
+    originalFeedback,
+    ...(enhancements.length > 0 ? [
+      '\nGitHub-specific recommendations:',
+      ...enhancements.map(e => `• ${e}`)
+    ] : [])
+  ].join('\n')
+
+  return enhancedFeedback
+}
+
+/**
+ * Get assessment results for a submission
+ */
+export async function getAssessmentResults(submissionId: string): Promise<ActionResult> {
+  try {
+    const submission = await prisma.submission.findUnique({
+      where: { id: submissionId },
+      include: {
+        question: {
+          include: {
+            course: true,
+          },
+        },
+      },
+    })
+
+    if (!submission) {
+      return { success: false, error: 'Submission not found' }
     }
-  ]
-}
 
-Focus on practical, actionable feedback that helps the student improve their code and development practices.
-`;
-  }
-
-  private async assessTextSubmission(
-    submissionContent: string,
-    question: Question & { baseExamples: BaseExample[] }
-  ): Promise<AssessmentResult> {
-    const baseExample = question.baseExamples.find(
-      example => example.title.toLowerCase().includes('text') || example.content.toLowerCase().includes('text')
-    );
-
-    const prompt = this.createTextAssessmentPrompt(submissionContent, question, baseExample);
-    const aiResponse = await this.llmService.assessSubmission(prompt);
-
+    return { success: true, data: submission }
+  } catch (error) {
+    console.error('Error getting assessment results:', error)
     return {
-      remark: this.parseRemark(aiResponse.remark),
-      feedback: aiResponse.feedback,
-      criteriaAnalysis: aiResponse.criteriaAnalysis || [],
-    };
-  }
-
-  private async assessDocumentSubmission(
-    submissionContent: string,
-    question: Question & { baseExamples: BaseExample[] }
-  ): Promise<AssessmentResult> {
-    // For now, treat document as text - will enhance in AS-3.2
-    return this.assessTextSubmission(submissionContent, question);
-  }
-
-  private async assessWebsiteSubmission(
-    submissionContent: string,
-    question: Question & { baseExamples: BaseExample[] }
-  ): Promise<AssessmentResult> {
-    // Placeholder for website assessment - will implement in AS-3.3
-    return {
-      remark: 'Needs Improvement',
-      feedback: 'Website assessment not yet implemented',
-      criteriaAnalysis: [],
-    };
-  }
-
-  private async assessScreenshotSubmission(
-    submissionContent: string,
-    question: Question & { baseExamples: BaseExample[] }
-  ): Promise<AssessmentResult> {
-    // Placeholder for screenshot assessment - will implement in AS-3.3
-    return {
-      remark: 'Needs Improvement',
-      feedback: 'Screenshot assessment not yet implemented',
-      criteriaAnalysis: [],
-    };
-  }
-
-  private createTextAssessmentPrompt(
-    submissionContent: string,
-    question: Question,
-    baseExample?: BaseExample
-  ): string {
-    const baseExampleSection = baseExample ? `
-BASE EXAMPLE FOR COMPARISON:
-Perfect Answer: ${baseExample.description}
-Example Content: ${baseExample.content}
-Key Points: Example key points
-` : '';
-
-    return `
-ASSESSMENT TASK: Evaluate Text Submission
-
-COURSE: Course Information
-QUESTION: ${question.title}
-REQUIREMENTS: ${question.description}
-ASSESSMENT CRITERIA: ${question.assessmentPrompt}
-
-${baseExampleSection}
-
-STUDENT SUBMISSION:
-${submissionContent}
-
-Please provide assessment in this JSON format:
-{
-  "remark": "Excellent|Good|Can Improve|Needs Improvement",
-  "feedback": "Short, actionable, course-specific feedback",
-  "criteriaAnalysis": [
-    {
-      "criterion": "Content Quality",
-      "status": "Met|Partially Met|Not Met",
-      "details": "Specific details about this criterion"
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get results',
     }
-  ]
-}
-`;
   }
-
-  private parseRemark(aiRemark: string): 'Excellent' | 'Good' | 'Can Improve' | 'Needs Improvement' {
-    const cleaned = aiRemark.toLowerCase().trim();
-    
-    if (cleaned.includes('excellent')) return 'Excellent';
-    if (cleaned.includes('good')) return 'Good';
-    if (cleaned.includes('can improve') || cleaned.includes('could improve')) return 'Can Improve';
-    
-    return 'Needs Improvement';
-  }
-}
-
-const llmService = new LLMService();
-export const assessmentService = new AssessmentService(llmService);
-
-// Question management functions
-export async function createQuestion(data: any) {
-  // TODO: Implement question creation
-  return { success: false, error: 'Not implemented yet' };
 }
