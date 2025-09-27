@@ -212,7 +212,7 @@ export default async function TestPage() {
               {testResults.courseResult.data && (
                 <div className="mt-4 p-3 bg-muted rounded-md">
                   <p className="text-sm text-muted-foreground">
-                    Found course: <strong>{testResults.courseResult.data.name}</strong> with {testResults.courseResult.data._count.questions} questions
+                    Found course: <strong>{testResults.courseResult.data.name}</strong> with {testResults.courseResult.data._count?.questions || 'unknown number of'} questions
                   </p>
                 </div>
               )}

@@ -1,16 +1,23 @@
+// lib/actions/question-actions.ts
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { prisma } from '@/lib/prisma'
-import { assessmentService } from '@/lib/services/assessment-service'
-import { githubService, GitHubAssessmentData } from '@/lib/services/github-service'
-import { AssessmentResult } from '@/lib/services/llm-service'
-import { BaseExample } from '@prisma/client'
 import { z } from 'zod'
+import { prisma } from '@/lib/prisma'
+import { requireAuth, requireRole } from '@/lib/auth/utils'
+import { UserRole, SubmissionType } from '@prisma/client'
 
-// Assessment request schema
-const assessmentRequestSchema = z.object({
-  submissionId: z.string().uuid(),
+// Validation schemas
+const createQuestionSchema = z.object({
+  courseId: z.string().cuid(),
+  title: z.string().min(1, 'Question title is required').max(200, 'Title too long'),
+  description: z.string().min(1, 'Description is required'),
+  submissionType: z.enum(['TEXT', 'DOCUMENT', 'GITHUB_REPO', 'SCREENSHOT', 'WEBSITE']),
+  assessmentPrompt: z.string().optional(),
+  criteria: z.array(z.string()).default([]),
+  redFlags: z.array(z.string()).default([]),
+  conditionalChecks: z.array(z.string()).default([]),
+  guidance: z.string().optional(),
 })
 
 type ActionResult<T = any> = {
@@ -20,286 +27,270 @@ type ActionResult<T = any> = {
 }
 
 /**
- * Assess a submission and update the database
+ * Create a new question
  */
-export async function assessSubmission(submissionId: string): Promise<ActionResult<AssessmentResult>> {
+export async function createQuestion(data: {
+  courseId: string
+  title: string
+  description: string
+  submissionType: SubmissionType
+  assessmentPrompt?: string
+  criteria: string[]
+  redFlags: string[]
+  conditionalChecks: string[]
+  guidance?: string
+}): Promise<ActionResult> {
   try {
-    // Get submission with question and base examples
-    const submission = await prisma.submission.findUnique({
-      where: { id: submissionId },
-      include: {
-        question: {
-          include: {
-            baseExamples: true,
-            course: true,
-          },
-        },
-      },
+    const user = await requireRole([UserRole.SUPER_ADMIN, UserRole.COURSE_ADMIN])
+
+    // Validate the input data
+    const validatedData = createQuestionSchema.parse(data)
+
+    // Check if course exists and user has permission
+    const course = await prisma.course.findUnique({
+      where: { id: validatedData.courseId }
     })
 
-    if (!submission) {
-      return { success: false, error: 'Submission not found' }
+    if (!course) {
+      return { success: false, error: 'Course not found' }
     }
 
-    let assessmentResult: AssessmentResult
-    let githubData: GitHubAssessmentData | undefined
-
-    // Handle GitHub repository submissions differently
-    if (submission.question.submissionType === 'github_repo') {
-      const githubResult = await assessGitHubSubmission(
-        submission.submissionContent,
-        submission.question.baseExamples,
-        submission.question
-      )
-      assessmentResult = githubResult.assessment
-      githubData = githubResult.githubData
-    } else {
-      // Use regular assessment service for other types
-      assessmentResult = await assessmentService.assessSubmission({
-        questionId: submission.questionId,
-        content: submission.submissionContent,
-        submissionType: submission.question.submissionType,
-      })
+    // Check permissions
+    if (user.role === UserRole.COURSE_ADMIN && course.creatorId !== user.id) {
+      return { success: false, error: 'You do not have permission to add questions to this course' }
     }
 
-    // Update submission with assessment results
-    const updatedSubmission = await prisma.submission.update({
-      where: { id: submissionId },
+    // Get the next question number for this course
+    const lastQuestion = await prisma.question.findFirst({
+      where: { courseId: validatedData.courseId },
+      orderBy: { questionNumber: 'desc' }
+    })
+
+    const questionNumber = lastQuestion ? lastQuestion.questionNumber + 1 : 1
+
+    // Create the question
+    const question = await prisma.question.create({
       data: {
-        assessmentResult: {
-          remark: assessmentResult.remark,
-          feedback: assessmentResult.feedback,
-          criteria_met: assessmentResult.criteria_met,
-          areas_for_improvement: assessmentResult.areas_for_improvement,
-          confidence: assessmentResult.confidence,
-          processing_time_ms: assessmentResult.processing_time_ms,
-          model_used: assessmentResult.model_used,
-          // Store GitHub data in metadata if available
-          ...(githubData && {
-            metadata: {
-              github: githubData,
-            },
-          }),
-        },
+        courseId: validatedData.courseId,
+        questionNumber,
+        title: validatedData.title,
+        description: validatedData.description,
+        submissionType: validatedData.submissionType as SubmissionType,
+        assessmentPrompt: validatedData.assessmentPrompt || null,
+        criteria: validatedData.criteria.filter(c => c.trim() !== ''),
+        redFlags: validatedData.redFlags.filter(r => r.trim() !== ''),
+        conditionalChecks: validatedData.conditionalChecks.filter(c => c.trim() !== ''),
+        guidance: validatedData.guidance || null,
+        createdBy: user.id,
       },
-    })
-
-    revalidatePath(`/results/${submissionId}`)
-    return { success: true, data: assessmentResult }
-  } catch (error) {
-    console.error('Assessment error:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Assessment failed',
-    }
-  }
-}
-
-/**
- * Assess GitHub repository submission with specialized logic
- */
-async function assessGitHubSubmission(
-  repoUrl: string,
-  baseExamples: BaseExample[],
-  question: any
-): Promise<{ assessment: AssessmentResult; githubData: GitHubAssessmentData }> {
-  try {
-    // Validate GitHub URL
-    if (!githubService.isValidGitHubUrl(repoUrl)) {
-      throw new Error('Invalid GitHub repository URL')
-    }
-
-    // Get repository analysis
-    const githubData = await githubService.assessRepository(repoUrl)
-
-    // Create specialized prompt for GitHub assessment
-    const githubPrompt = createGitHubAssessmentPrompt(githubData, baseExamples, question)
-
-    // Get assessment from LLM service with GitHub-specific prompt
-    const assessment = await assessmentService.assessSubmission({
-      questionId: question.id,
-      content: githubPrompt,
-      submissionType: 'github_repo',
-    })
-
-    // Enhance feedback with GitHub-specific insights
-    const enhancedFeedback = enhanceGitHubFeedback(assessment.feedback, githubData)
-
-    return {
-      assessment: {
-        ...assessment,
-        feedback: enhancedFeedback,
-      },
-      githubData,
-    }
-  } catch (error) {
-    console.error('GitHub assessment error:', error)
-    
-    // Return fallback assessment for GitHub errors
-    return {
-      assessment: {
-        remark: 'Needs Improvement',
-        feedback: `Unable to analyze repository: ${error instanceof Error ? error.message : 'Unknown error'}. Please ensure the repository is public and accessible.`,
-        criteria_met: [],
-        areas_for_improvement: ['Repository accessibility', 'URL validation'],
-        confidence: 0.1,
-        processing_time_ms: 0,
-        model_used: 'github-service',
-      },
-      githubData: {
-        repoInfo: {
-          owner: '',
-          repo: '',
-          files: [],
-          structure: '',
-          languages: {},
-          hasTests: false,
-          hasDocumentation: false,
-          fileCount: 0,
-          totalSize: 0,
-        },
-        codeQuality: {
-          hasReadme: false,
-          hasTests: false,
-          hasDocumentation: false,
-          mainLanguage: 'Unknown',
-          complexity: 'low',
-        },
-        structure: {
-          organized: false,
-          hasProperStructure: false,
-          fileTypes: [],
-        },
-      },
-    }
-  }
-}
-
-/**
- * Create specialized assessment prompt for GitHub repositories
- */
-function createGitHubAssessmentPrompt(
-  githubData: GitHubAssessmentData,
-  baseExamples: BaseExample[],
-  question: any
-): string {
-  const { repoInfo, codeQuality, structure } = githubData
-
-  // Build comprehensive prompt with repository analysis
-  let prompt = `
-GITHUB REPOSITORY ASSESSMENT
-
-Repository Analysis:
-- Owner/Repo: ${repoInfo.owner}/${repoInfo.repo}
-- Main Language: ${codeQuality.mainLanguage}
-- File Count: ${repoInfo.fileCount}
-- Total Size: ${repoInfo.totalSize} bytes
-- Complexity: ${codeQuality.complexity}
-
-Code Quality Indicators:
-- Has README: ${codeQuality.hasReadme ? 'Yes' : 'No'}
-- Has Tests: ${codeQuality.hasTests ? 'Yes' : 'No'}
-- Has Documentation: ${codeQuality.hasDocumentation ? 'Yes' : 'No'}
-- Organized Structure: ${structure.organized ? 'Yes' : 'No'}
-
-Repository Structure:
-${repoInfo.structure}
-
-File Types Found: ${structure.fileTypes.join(', ')}
-
-Main Files Content (first 5 files):
-${repoInfo.files.slice(0, 5).map(file => 
-  `${file.path} (${file.type}):\n${file.content.slice(0, 500)}...\n`
-).join('\n')}
-
-${repoInfo.readme ? `README Content:\n${repoInfo.readme.slice(0, 1000)}...` : 'No README found'}
-
-Question Requirements:
-${question.description}
-
-Assessment Criteria:
-${question.criteria || 'Standard code quality, functionality, and documentation assessment'}
-
-${baseExamples.length > 0 ? `
-Base Examples for Comparison:
-${baseExamples.map((example: BaseExample) => `
-Example: ${example.title}
-Content: ${example.content.slice(0, 500)}...
-`).join('\n')}
-` : ''}
-
-Please assess this GitHub repository against the question requirements and provide structured feedback.
-  `
-
-  return prompt
-}
-
-/**
- * Enhance feedback with GitHub-specific insights
- */
-function enhanceGitHubFeedback(
-  originalFeedback: string,
-  githubData: GitHubAssessmentData
-): string {
-  const { codeQuality, structure, repoInfo } = githubData
-
-  let enhancements: string[] = []
-
-  // Add specific GitHub insights
-  if (!codeQuality.hasReadme) {
-    enhancements.push('Consider adding a comprehensive README.md file to explain the project.')
-  }
-
-  if (!codeQuality.hasTests) {
-    enhancements.push('Adding unit tests would improve code reliability and maintainability.')
-  }
-
-  if (!structure.organized) {
-    enhancements.push('Organizing code into logical directories would improve project structure.')
-  }
-
-  if (repoInfo.fileCount > 50 && codeQuality.complexity === 'high') {
-    enhancements.push('For a project of this size, consider adding better documentation and code organization.')
-  }
-
-  // Combine original feedback with GitHub-specific insights
-  const enhancedFeedback = [
-    originalFeedback,
-    ...(enhancements.length > 0 ? [
-      '\nGitHub-specific recommendations:',
-      ...enhancements.map(e => `• ${e}`)
-    ] : [])
-  ].join('\n')
-
-  return enhancedFeedback
-}
-
-/**
- * Get assessment results for a submission
- */
-export async function getAssessmentResults(submissionId: string): Promise<ActionResult> {
-  try {
-    const submission = await prisma.submission.findUnique({
-      where: { id: submissionId },
       include: {
-        question: {
-          include: {
-            course: true,
-          },
+        course: {
+          select: { name: true }
         },
-      },
+        _count: {
+          select: { submissions: true, baseExamples: true }
+        }
+      }
     })
 
-    if (!submission) {
-      return { success: false, error: 'Submission not found' }
+    revalidatePath('/admin/courses')
+    revalidatePath(`/admin/courses/${validatedData.courseId}`)
+    
+    return { success: true, data: question }
+
+  } catch (error) {
+    console.error('Create question error:', error)
+    
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: 'Invalid input: ' + error.errors.map(e => e.message).join(', ')
+      }
     }
 
-    return { success: true, data: submission }
-  } catch (error) {
-    console.error('Error getting assessment results:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to get results',
+      error: error instanceof Error ? error.message : 'Failed to create question'
+    }
+  }
+}
+
+/**
+ * Update an existing question
+ */
+export async function updateQuestion(
+  questionId: string,
+  data: Partial<{
+    title: string
+    description: string
+    submissionType: SubmissionType
+    assessmentPrompt: string
+    criteria: string[]
+    redFlags: string[]
+    conditionalChecks: string[]
+    guidance: string
+    isActive: boolean
+  }>
+): Promise<ActionResult> {
+  try {
+    const user = await requireRole([UserRole.SUPER_ADMIN, UserRole.COURSE_ADMIN])
+
+    // Check if question exists and user has permission
+    const existingQuestion = await prisma.question.findUnique({
+      where: { id: questionId },
+      include: {
+        course: true
+      }
+    })
+
+    if (!existingQuestion) {
+      return { success: false, error: 'Question not found' }
+    }
+
+    // Check permissions
+    if (user.role === UserRole.COURSE_ADMIN && existingQuestion.course.creatorId !== user.id) {
+      return { success: false, error: 'You do not have permission to edit this question' }
+    }
+
+    // Update the question
+    const updatedQuestion = await prisma.question.update({
+      where: { id: questionId },
+      data: {
+        ...data,
+        criteria: data.criteria?.filter(c => c.trim() !== ''),
+        redFlags: data.redFlags?.filter(r => r.trim() !== ''),
+        conditionalChecks: data.conditionalChecks?.filter(c => c.trim() !== ''),
+      },
+      include: {
+        course: {
+          select: { name: true }
+        },
+        _count: {
+          select: { submissions: true, baseExamples: true }
+        }
+      }
+    })
+
+    revalidatePath('/admin/courses')
+    revalidatePath(`/admin/courses/${existingQuestion.courseId}`)
+    revalidatePath(`/admin/courses/${existingQuestion.courseId}/assessments/${questionId}`)
+    
+    return { success: true, data: updatedQuestion }
+
+  } catch (error) {
+    console.error('Update question error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update question'
+    }
+  }
+}
+
+/**
+ * Delete a question
+ */
+export async function deleteQuestion(questionId: string): Promise<ActionResult> {
+  try {
+    const user = await requireRole([UserRole.SUPER_ADMIN, UserRole.COURSE_ADMIN])
+
+    // Check if question exists and user has permission
+    const existingQuestion = await prisma.question.findUnique({
+      where: { id: questionId },
+      include: {
+        course: true,
+        _count: {
+          select: { submissions: true }
+        }
+      }
+    })
+
+    if (!existingQuestion) {
+      return { success: false, error: 'Question not found' }
+    }
+
+    // Check permissions
+    if (user.role === UserRole.COURSE_ADMIN && existingQuestion.course.creatorId !== user.id) {
+      return { success: false, error: 'You do not have permission to delete this question' }
+    }
+
+    // Check if question has submissions
+    if (existingQuestion._count.submissions > 0) {
+      return {
+        success: false,
+        error: 'Cannot delete question with existing submissions. Archive it instead.'
+      }
+    }
+
+    // Delete the question (this will cascade to base examples)
+    await prisma.question.delete({
+      where: { id: questionId }
+    })
+
+    revalidatePath('/admin/courses')
+    revalidatePath(`/admin/courses/${existingQuestion.courseId}`)
+    
+    return { success: true, data: { message: 'Question deleted successfully' } }
+
+  } catch (error) {
+    console.error('Delete question error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete question'
+    }
+  }
+}
+
+/**
+ * Get question details with submissions
+ */
+export async function getQuestionWithSubmissions(questionId: string): Promise<ActionResult> {
+  try {
+    const user = await requireAuth()
+
+    const question = await prisma.question.findUnique({
+      where: { id: questionId },
+      include: {
+        course: {
+          select: { 
+            id: true, 
+            name: true, 
+            creatorId: true 
+          }
+        },
+        baseExamples: {
+          orderBy: { createdAt: 'desc' }
+        },
+        submissions: {
+          orderBy: { createdAt: 'desc' },
+          take: 10, // Latest 10 submissions
+          include: {
+            user: {
+              select: { name: true, email: true }
+            }
+          }
+        },
+        _count: {
+          select: { submissions: true, baseExamples: true }
+        }
+      }
+    })
+
+    if (!question) {
+      return { success: false, error: 'Question not found' }
+    }
+
+    // Check permissions
+    if (user.role === UserRole.COURSE_ADMIN && question.course.creatorId !== user.id) {
+      return { success: false, error: 'You do not have permission to view this question' }
+    }
+
+    return { success: true, data: question }
+
+  } catch (error) {
+    console.error('Get question with submissions error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get question details'
     }
   }
 }

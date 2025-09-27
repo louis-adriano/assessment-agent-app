@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,7 +28,7 @@ interface Question {
   guidance?: string
 }
 
-export default function SubmitPage() {
+function SubmitPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -101,7 +101,7 @@ export default function SubmitPage() {
 
   const handleGitHubUrlChange = (url: string) => {
     setSubmissionContent(url)
-    if (question?.submissionType === 'github_repo') {
+    if (question?.submissionType === 'GITHUB_REPO') {
       validateGitHubUrl(url)
     }
   }
@@ -120,7 +120,7 @@ export default function SubmitPage() {
     }
 
     // GitHub-specific validation
-    if (question.submissionType === 'github_repo' && githubValidation && !githubValidation.isValid) {
+    if (question.submissionType === 'GITHUB_REPO' && githubValidation && !githubValidation.isValid) {
       setValidationError('Please provide a valid GitHub repository URL')
       return
     }
@@ -179,15 +179,15 @@ export default function SubmitPage() {
 
   const getSubmissionIcon = (type: string) => {
     switch (type) {
-      case 'github_repo':
+      case 'GITHUB_REPO':
         return <Github className="w-5 h-5" />
-      case 'website':
+      case 'WEBSITE':
         return <Globe className="w-5 h-5" />
-      case 'document':
+      case 'DOCUMENT':
         return <FileText className="w-5 h-5" />
-      case 'screenshot':
+      case 'SCREENSHOT':
         return <Image className="w-5 h-5" />
-      case 'text':
+      case 'TEXT':
         return <FileText className="w-5 h-5" />
       default:
         return <Upload className="w-5 h-5" />
@@ -198,7 +198,7 @@ export default function SubmitPage() {
     if (!question) return null
 
     switch (question.submissionType) {
-      case 'text':
+      case 'TEXT':
         return (
           <div className="space-y-2">
             <Label htmlFor="content">Your Response</Label>
@@ -213,7 +213,7 @@ export default function SubmitPage() {
           </div>
         )
 
-      case 'github_repo':
+      case 'GITHUB_REPO':
         return (
           <div className="space-y-2">
             <Label htmlFor="content">GitHub Repository URL</Label>
@@ -243,7 +243,7 @@ export default function SubmitPage() {
           </div>
         )
 
-      case 'website':
+      case 'WEBSITE':
         return (
           <div className="space-y-2">
             <Label htmlFor="content">Website URL</Label>
@@ -260,7 +260,7 @@ export default function SubmitPage() {
           </div>
         )
 
-      case 'document':
+      case 'DOCUMENT':
         return (
           <div className="space-y-2">
             <Label htmlFor="content">Document URL or Content</Label>
@@ -278,7 +278,7 @@ export default function SubmitPage() {
           </div>
         )
 
-      case 'screenshot':
+      case 'SCREENSHOT':
         return (
           <div className="space-y-2">
             <Label htmlFor="content">Image URL or Description</Label>
@@ -403,7 +403,7 @@ export default function SubmitPage() {
           </Button>
           <Button 
             type="submit" 
-            disabled={isSubmitting || !submissionContent.trim() || (question?.submissionType === 'github_repo' && githubValidation && !githubValidation.isValid)}
+            disabled={isSubmitting || !submissionContent.trim() || (question?.submissionType === 'GITHUB_REPO' && githubValidation?.isValid === false)}
           >
             {isSubmitting ? (
               <>
@@ -433,5 +433,20 @@ export default function SubmitPage() {
         </Card>
       </form>
     </div>
+  )
+}
+
+export default function SubmitPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-8 max-w-3xl">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-4">Loading...</h1>
+          <p className="text-muted-foreground">Preparing submission form...</p>
+        </div>
+      </div>
+    }>
+      <SubmitPageContent />
+    </Suspense>
   )
 }

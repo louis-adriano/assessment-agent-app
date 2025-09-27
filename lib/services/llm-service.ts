@@ -1,10 +1,20 @@
 import Groq from 'groq-sdk'
-import { SubmissionType } from '@prisma/client'
+// import { SubmissionType } from '@prisma/client'
+
+// Define our own SubmissionType
+type SubmissionType = 'TEXT' | 'DOCUMENT' | 'GITHUB_REPO' | 'SCREENSHOT' | 'WEBSITE'
 
 // Initialize Groq client
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY!,
 })
+
+// Add debug logging for API key
+if (!process.env.GROQ_API_KEY) {
+  console.error('❌ GROQ_API_KEY environment variable is not set!');
+} else {
+  console.log('✅ GROQ_API_KEY is configured');
+}
 
 // LLM Model Configuration - Updated with current Groq models
 export const LLM_MODELS = {
@@ -50,21 +60,21 @@ export interface AssessmentRequest {
 // LLM routing logic based on submission type and complexity
 export function selectLLMModel(submissionType: SubmissionType, contentLength: number, hasBaseExample: boolean): LLMModel {
   // Simple content (< 500 chars) - use Llama 8B
-  if (contentLength < 500 && submissionType === SubmissionType.TEXT) {
+  if (contentLength < 500 && submissionType === 'TEXT') {
     return LLM_MODELS.LLAMA_8B
   }
 
   // Complex submissions always use Llama 70B
-  if (submissionType === SubmissionType.GITHUB_REPO || 
-      submissionType === SubmissionType.WEBSITE ||
+  if (submissionType === 'GITHUB_REPO' || 
+      submissionType === 'WEBSITE' ||
       contentLength > 5000 ||
       hasBaseExample) {
     return LLM_MODELS.LLAMA_70B
   }
 
   // Medium complexity - documents, screenshots
-  if (submissionType === SubmissionType.DOCUMENT || 
-      submissionType === SubmissionType.SCREENSHOT ||
+  if (submissionType === 'DOCUMENT' || 
+      submissionType === 'SCREENSHOT' ||
       contentLength > 1000) {
     return LLM_MODELS.MIXTRAL
   }
@@ -185,7 +195,7 @@ Provide specific, actionable feedback that helps the student improve.
 // Get submission-type specific guidelines
 function getSubmissionTypeGuidelines(submissionType: SubmissionType): string {
   switch (submissionType) {
-    case SubmissionType.TEXT:
+    case 'TEXT':
       return `
 
 **TEXT SUBMISSION EVALUATION:**
@@ -195,7 +205,7 @@ function getSubmissionTypeGuidelines(submissionType: SubmissionType): string {
 - Look for evidence of understanding vs. memorization
 `
 
-    case SubmissionType.GITHUB_REPO:
+    case 'GITHUB_REPO':
       return `
 
 **GITHUB REPOSITORY EVALUATION:**
@@ -206,7 +216,7 @@ function getSubmissionTypeGuidelines(submissionType: SubmissionType): string {
 - Consider repository organization and file structure
 `
 
-    case SubmissionType.DOCUMENT:
+    case 'DOCUMENT':
       return `
 
 **DOCUMENT SUBMISSION EVALUATION:**
@@ -217,7 +227,7 @@ function getSubmissionTypeGuidelines(submissionType: SubmissionType): string {
 - Consider adherence to assignment requirements
 `
 
-    case SubmissionType.WEBSITE:
+    case 'WEBSITE':
       return `
 
 **WEBSITE SUBMISSION EVALUATION:**
@@ -228,7 +238,7 @@ function getSubmissionTypeGuidelines(submissionType: SubmissionType): string {
 - Consider performance and optimization
 `
 
-    case SubmissionType.SCREENSHOT:
+    case 'SCREENSHOT':
       return `
 
 **SCREENSHOT SUBMISSION EVALUATION:**
@@ -257,29 +267,66 @@ export async function assessSubmission(request: AssessmentRequest): Promise<Asse
     // Build the assessment prompt
     const prompt = buildAssessmentPrompt(request)
 
-    console.log(`Assessing submission with ${selectedModel} (content length: ${contentLength})`)
+    console.log(`🤖 Assessing submission with ${selectedModel} (content length: ${contentLength})`)
+    console.log('📤 About to make Groq API call...');
 
-    // Make the API call to Groq
-    const completion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert educational assessor. Always respond with valid JSON in the exact format requested."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      model: selectedModel,
-      temperature: 0.3, // Lower temperature for more consistent assessments
-      max_tokens: 1000,
-      response_format: { type: "json_object" }
-    })
+    // Make the API call to Groq with timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000)
+    });
+
+    // Try the selected model first, fallback to LLAMA_8B if it fails
+    let completion: any;
+    try {
+      completion = await Promise.race([
+        groq.chat.completions.create({
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert educational assessor. Always respond with valid JSON in the exact format requested."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          model: selectedModel,
+          temperature: 0.3, // Lower temperature for more consistent assessments
+          max_tokens: 1000,
+          response_format: { type: "json_object" }
+        }),
+        timeoutPromise
+      ]);
+    } catch (modelError) {
+      console.warn(`⚠️ Model ${selectedModel} failed, trying fallback model...`);
+      // Fallback to LLAMA_8B
+      completion = await Promise.race([
+        groq.chat.completions.create({
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert educational assessor. Always respond with valid JSON in the exact format requested."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          model: LLM_MODELS.LLAMA_8B,
+          temperature: 0.3,
+          max_tokens: 1000,
+          response_format: { type: "json_object" }
+        }),
+        timeoutPromise
+      ]);
+    }
+
+    console.log('📥 Groq API call completed');
 
     const responseContent = completion.choices[0]?.message?.content
 
     if (!responseContent) {
+      console.error('❌ No response from LLM');
       throw new Error('No response from LLM')
     }
 

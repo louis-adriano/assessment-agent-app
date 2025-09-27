@@ -1,22 +1,24 @@
+// lib/actions/submission-actions.ts
 'use server'
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { assessmentService } from '@/lib/services/assessment-service'
+import { processAnonymousAssessment } from '@/lib/services/assessment-service'
 import { githubService } from '@/lib/services/github-service'
+// import { SubmissionType, SubmissionStatus } from '@prisma/client'
 
 // Enhanced validation schema with GitHub URL support
 const submissionSchema = z.object({
   courseName: z.string().min(1, 'Course name is required'),
   questionNumber: z.number().min(1, 'Question number must be positive'),
-  submissionType: z.enum(['document', 'github_repo', 'screenshot', 'text', 'website']),
+  submissionType: z.enum(['TEXT', 'DOCUMENT', 'GITHUB_REPO', 'SCREENSHOT', 'WEBSITE']),
   content: z.string().min(1, 'Submission content is required'),
   additionalInfo: z.string().optional(),
 }).refine((data) => {
   // Enhanced GitHub URL validation
-  if (data.submissionType === 'github_repo') {
+  if (data.submissionType === 'GITHUB_REPO') {
     if (!data.content.trim()) {
       return false;
     }
@@ -37,7 +39,7 @@ const submissionSchema = z.object({
   }
   
   // URL validation for website submissions
-  if (data.submissionType === 'website') {
+  if (data.submissionType === 'WEBSITE') {
     try {
       new URL(data.content.startsWith('http') ? data.content : `https://${data.content}`);
       return true;
@@ -126,7 +128,7 @@ export async function submitAssessment(
     }
 
     // For GitHub repos, validate URL before creating submission
-    if (submissionType === 'github_repo') {
+    if (question.submissionType === 'GITHUB_REPO') {
       console.log('🔍 Validating GitHub URL:', content);
       
       // Clean up the URL
@@ -165,15 +167,19 @@ export async function submitAssessment(
       content = cleanUrl;
     }
 
+    // Combine content with additional info if provided
+    const finalContent = additionalInfo
+      ? `${content}\n\nAdditional Notes:\n${additionalInfo}`
+      : content;
+
     // Create submission record
     const submission = await prisma.submission.create({
       data: {
         questionId: question.id,
         userId: null, // Anonymous submission
-        submissionType: submissionType as any,
-        submissionContent: content,
-        additionalInfo,
-        assessmentResult: null, // Will be updated after assessment
+        submissionContent: finalContent,
+        status: 'PROCESSING',
+        assessmentResult: undefined, // Will be updated after assessment
       },
     });
 
@@ -183,18 +189,19 @@ export async function submitAssessment(
     let assessmentResult;
     
     try {
-      if (submissionType === 'github_repo') {
+      if (question.submissionType === 'GITHUB_REPO') {
         console.log('🔍 Starting GitHub assessment...');
         // Use specialized GitHub assessment
-        assessmentResult = await assessGitHubRepository(content, question);
+        assessmentResult = await assessGitHubRepository(content, question, submission.id);
         console.log('✅ GitHub assessment completed');
       } else {
         console.log('🔍 Starting regular assessment...');
         // Use regular assessment service
-        assessmentResult = await assessmentService.assessSubmission({
+        assessmentResult = await processAnonymousAssessment({
+          submissionId: submission.id,
           questionId: question.id,
-          content: content,
-          submissionType: submissionType as any,
+          submissionContent: finalContent,
+          question: question,
         });
         console.log('✅ Regular assessment completed');
       }
@@ -203,7 +210,9 @@ export async function submitAssessment(
       await prisma.submission.update({
         where: { id: submission.id },
         data: {
-          assessmentResult: assessmentResult,
+          status: 'COMPLETED',
+          assessmentResult: assessmentResult as any,
+          processedAt: new Date(),
         },
       });
 
@@ -216,6 +225,7 @@ export async function submitAssessment(
       await prisma.submission.update({
         where: { id: submission.id },
         data: {
+          status: 'FAILED',
           assessmentResult: {
             remark: 'Needs Improvement',
             feedback: `Assessment failed: ${assessmentError instanceof Error ? assessmentError.message : 'Unknown error'}`,
@@ -248,7 +258,7 @@ export async function submitAssessment(
 /**
  * Specialized GitHub repository assessment
  */
-async function assessGitHubRepository(repoUrl: string, question: any) {
+async function assessGitHubRepository(repoUrl: string, question: any, submissionId: string) {
   console.log('🔍 Assessing GitHub repository:', repoUrl);
   
   try {
@@ -293,10 +303,11 @@ Please assess this GitHub repository and provide structured feedback focusing on
     `;
 
     // Get AI assessment with GitHub-specific prompt
-    const assessment = await assessmentService.assessSubmission({
+    const assessment = await processAnonymousAssessment({
+      submissionId: submissionId,
       questionId: question.id,
-      content: githubPrompt,
-      submissionType: 'github_repo',
+      submissionContent: githubPrompt,
+      question: question,
     });
 
     // Enhance feedback with GitHub-specific insights
@@ -334,31 +345,56 @@ GitHub Analysis Summary:
 }
 
 /**
- * Get assessment results for a submission
+ * Get assessment results for anonymous submissions
  */
-export async function getSubmissionResults(submissionId: string): Promise<ActionResult> {
+export async function getAnonymousSubmissionResult(submissionId: string) {
   try {
     const submission = await prisma.submission.findUnique({
       where: { id: submissionId },
       include: {
         question: {
           include: {
-            course: true,
-          },
+            course: {
+              select: {
+                name: true,
+                id: true
+              }
+            }
+          }
         },
-      },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
     });
 
     if (!submission) {
-      return { success: false, error: 'Submission not found' };
+      return null;
     }
 
-    return { success: true, data: submission };
+    return submission;
   } catch (error) {
-    console.error('Error getting submission results:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get results',
-    };
+    console.error('Error getting anonymous submission result:', error);
+    return null;
   }
+}
+
+/**
+ * Alternative submission function for simple text/form submissions
+ */
+export async function submitAnonymousAssessment(formData: FormData): Promise<ActionResult> {
+  const courseName = formData.get('courseName') as string;
+  const assessmentNumber = parseInt(formData.get('assessmentNumber') as string);
+  const submissionContent = formData.get('submissionContent') as string;
+
+  return await submitAssessment(
+    courseName,
+    assessmentNumber,
+    'TEXT', // Default to text for form submissions
+    submissionContent
+  );
 }

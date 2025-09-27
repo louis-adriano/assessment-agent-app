@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { assessSubmission, AssessmentRequest, AssessmentResult, LLMRateLimiter } from './llm-service'
-import { SubmissionType, SubmissionStatus } from '@prisma/client'
+// import { SubmissionType, SubmissionStatus } from '@prisma/client'
 
 // Add type definition for stored assessment result
 interface StoredAssessmentResult {
@@ -107,7 +107,7 @@ export async function processAnonymousAssessment(options: AnonymousAssessmentOpt
       await prisma.submission.update({
         where: { id: submissionId },
         data: {
-          status: SubmissionStatus.COMPLETED,
+          status: 'COMPLETED',
           assessmentResult: {
             ...assessmentResult,
             baseExampleUsed: baseExample?.title,
@@ -125,7 +125,7 @@ export async function processAnonymousAssessment(options: AnonymousAssessmentOpt
       await prisma.submission.update({
         where: { id: submissionId },
         data: {
-          status: SubmissionStatus.FAILED,
+          status: 'FAILED',
           assessmentResult: {
             error: assessmentError instanceof Error ? assessmentError.message : 'Assessment failed'
           }
@@ -191,7 +191,7 @@ export async function processAssessment(options: AssessmentOptions): Promise<Enh
       where: {
         questionId,
         userId,
-        status: SubmissionStatus.COMPLETED
+        status: 'COMPLETED'
       },
       orderBy: { createdAt: 'desc' }
     })
@@ -225,7 +225,7 @@ export async function processAssessment(options: AssessmentOptions): Promise<Enh
         submissionContent,
         submissionUrl,
         fileUrl,
-        status: SubmissionStatus.PROCESSING
+        status: 'PROCESSING'
       }
     })
 
@@ -271,7 +271,7 @@ export async function processAssessment(options: AssessmentOptions): Promise<Enh
       await prisma.submission.update({
         where: { id: submission.id },
         data: {
-          status: SubmissionStatus.COMPLETED,
+          status: 'COMPLETED',
           assessmentResult: {
             ...assessmentResult,
             baseExampleUsed: baseExample?.title,
@@ -289,7 +289,7 @@ export async function processAssessment(options: AssessmentOptions): Promise<Enh
       await prisma.submission.update({
         where: { id: submission.id },
         data: {
-          status: SubmissionStatus.FAILED,
+          status: 'FAILED',
           assessmentResult: {
             error: assessmentError instanceof Error ? assessmentError.message : 'Assessment failed'
           }
@@ -306,7 +306,7 @@ export async function processAssessment(options: AssessmentOptions): Promise<Enh
 }
 
 // Select the most appropriate base example for comparison
-function selectBestBaseExample(baseExamples: any[], submissionType: SubmissionType) {
+function selectBestBaseExample(baseExamples: any[], submissionType: string) {
   if (!baseExamples || baseExamples.length === 0) {
     return null
   }
@@ -323,7 +323,7 @@ function selectBestBaseExample(baseExamples: any[], submissionType: SubmissionTy
 
   if (examplesWithMetadata.length > 0) {
     // For GitHub repos, prefer examples with file structure info
-    if (submissionType === SubmissionType.GITHUB_REPO) {
+    if (submissionType === 'GITHUB_REPO') {
       const repoExample = examplesWithMetadata.find(example => 
         example.metadata.fileStructure || example.metadata.features
       )
@@ -331,7 +331,7 @@ function selectBestBaseExample(baseExamples: any[], submissionType: SubmissionTy
     }
 
     // For documents, prefer examples with word count or topic info
-    if (submissionType === SubmissionType.DOCUMENT) {
+    if (submissionType === 'DOCUMENT') {
       const docExample = examplesWithMetadata.find(example => 
         example.metadata.wordCount || example.metadata.topics
       )
@@ -525,7 +525,7 @@ export async function reprocessAssessment(submissionId: string, userId: string):
 export async function getAssessmentAnalytics(courseId?: string, userId?: string): Promise<any> {
   try {
     const whereClause: any = {
-      status: SubmissionStatus.COMPLETED
+      status: 'COMPLETED'
     }
 
     if (courseId) {

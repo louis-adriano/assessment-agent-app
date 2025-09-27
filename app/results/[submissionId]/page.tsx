@@ -74,7 +74,7 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-red-600 mb-6">{result.error}</p>
+              <p className="text-red-600 mb-6">No assessment results found for this submission ID.</p>
               <div className="flex gap-3 justify-center">
                 <Button asChild>
                   <Link href="/submit">Submit New Assessment</Link>
@@ -111,9 +111,11 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
                 This usually takes 5-10 seconds. Your page will automatically update when ready.
               </p>
               <div className="flex gap-3 justify-center">
-                <Button onClick={() => window.location.reload()}>
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  Refresh
+                <Button asChild>
+                  <Link href={`/results/${submissionId}`}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Refresh
+                  </Link>
                 </Button>
                 <Button variant="outline" asChild>
                   <Link href="/submit">Submit Another</Link>

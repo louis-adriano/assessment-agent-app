@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,13 +27,14 @@ interface Question {
 }
 
 interface SubmissionPageProps {
-  params: {
+  params: Promise<{
     courseName: string;
     assessmentNumber: string;
-  };
+  }>;
 }
 
 export default function SubmissionPage({ params }: SubmissionPageProps) {
+  const { courseName, assessmentNumber } = use(params);
   const router = useRouter();
   const [question, setQuestion] = useState<Question | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,14 +50,14 @@ export default function SubmissionPage({ params }: SubmissionPageProps) {
 
   useEffect(() => {
     fetchQuestion();
-  }, [params.courseName, params.assessmentNumber]);
+  }, [courseName, assessmentNumber]);
 
   const fetchQuestion = async () => {
     try {
       setLoading(true);
       // In a real app, you'd have a server action to fetch the question
       // For now, we'll simulate it
-      const response = await fetch(`/api/questions?courseName=${params.courseName}&assessmentNumber=${params.assessmentNumber}`);
+      const response = await fetch(`/api/questions?courseName=${courseName}&assessmentNumber=${assessmentNumber}`);
       
       if (!response.ok) {
         throw new Error('Question not found');
@@ -101,8 +102,8 @@ export default function SubmissionPage({ params }: SubmissionPageProps) {
 
     try {
       const result = await submitAssessment(
-        params.courseName,
-        parseInt(params.assessmentNumber),
+        courseName,
+        parseInt(assessmentNumber),
         submissionContent,
         question.submissionType
       );

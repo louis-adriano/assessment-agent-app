@@ -125,10 +125,10 @@ async function getAssessmentWithStats(courseId: string, assessmentId: string, us
 }
 
 interface AssessmentPageProps {
-  params: {
+  params: Promise<{
     id: string
     assessmentId: string
-  }
+  }>
 }
 
 export default async function AssessmentDetailPage({ params }: AssessmentPageProps) {
@@ -145,7 +145,8 @@ export default async function AssessmentDetailPage({ params }: AssessmentPagePro
     )
   }
 
-  const assessment = await getAssessmentWithStats(params.id, params.assessmentId, user.role)
+  const { id: courseId, assessmentId } = await params
+  const assessment = await getAssessmentWithStats(courseId, assessmentId, user.role)
 
   if (!assessment) {
     notFound()
@@ -156,7 +157,7 @@ export default async function AssessmentDetailPage({ params }: AssessmentPagePro
       {/* Breadcrumb */}
       <div className="flex items-center gap-4 mb-6">
         <Link 
-          href={`/admin/courses/${params.id}`}
+          href={`/admin/courses/${courseId}`}
           className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -182,7 +183,7 @@ export default async function AssessmentDetailPage({ params }: AssessmentPagePro
             </div>
           </div>
           <div className="flex gap-2">
-            <Link href={`/admin/courses/${params.id}/assessments/${params.assessmentId}/edit`}>
+            <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/edit`}>
               <Button>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Assessment
@@ -330,7 +331,7 @@ export default async function AssessmentDetailPage({ params }: AssessmentPagePro
                 Perfect answer examples for consistent assessment
               </CardDescription>
             </div>
-            <Link href={`/admin/courses/${params.id}/assessments/${params.assessmentId}/base-examples/new`}>
+            <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/base-examples/new`}>
               <Button size="sm">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Example
@@ -344,7 +345,7 @@ export default async function AssessmentDetailPage({ params }: AssessmentPagePro
               <CheckCircle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No base examples yet</h3>
               <p className="text-gray-600 mb-4">Add perfect answer examples to improve assessment consistency</p>
-              <Link href={`/admin/courses/${params.id}/assessments/${params.assessmentId}/base-examples/new`}>
+              <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/base-examples/new`}>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Create First Example
@@ -363,13 +364,13 @@ export default async function AssessmentDetailPage({ params }: AssessmentPagePro
                   </div>
                   <p className="text-sm text-gray-600 line-clamp-3 mb-3">{example.content}</p>
                   <div className="flex gap-2">
-                    <Link href={`/admin/courses/${params.id}/assessments/${params.assessmentId}/base-examples/${example.id}`}>
+                    <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/base-examples/${example.id}`}>
                       <Button variant="outline" size="sm">
                         <Eye className="h-3 w-3 mr-1" />
                         View
                       </Button>
                     </Link>
-                    <Link href={`/admin/courses/${params.id}/assessments/${params.assessmentId}/base-examples/${example.id}/edit`}>
+                    <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/base-examples/${example.id}/edit`}>
                       <Button variant="outline" size="sm">
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
@@ -396,7 +397,7 @@ export default async function AssessmentDetailPage({ params }: AssessmentPagePro
                 Latest student submissions for this assessment
               </CardDescription>
             </div>
-            <Link href={`/admin/submissions?assessmentId=${params.assessmentId}`}>
+            <Link href={`/admin/submissions?assessmentId=${assessmentId}`}>
               <Button variant="outline" size="sm">
                 View All Submissions
               </Button>

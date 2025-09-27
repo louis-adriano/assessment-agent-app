@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
     console.log('Testing GitHub URL:', url);
 
     // Analyze the repository
-    const repoInfo = await githubService.analyzeRepository(url);
-    const codeQuality = githubService.analyzeCodeQuality(repoInfo.files);
+    const analysisResult = await githubService.assessRepository(url);
+    const { repoInfo, codeQuality } = analysisResult;
 
     console.log('Analysis complete:', {
       owner: repoInfo.owner,
