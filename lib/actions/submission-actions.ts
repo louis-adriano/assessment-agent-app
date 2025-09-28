@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { processAnonymousAssessment } from '@/lib/services/assessment-service'
 import { githubService } from '@/lib/services/github-service'
 import { getCourseByName } from './lookup-actions'
+import { sanitizeObject, sanitizeTextContent } from '@/lib/utils/sanitization'
 // import { SubmissionType, SubmissionStatus } from '@prisma/client'
 
 // Enhanced validation schema with GitHub URL support
@@ -164,21 +165,24 @@ export async function submitAssessment(
         };
       }
       
-      // Update content with cleaned URL
-      content = cleanUrl;
+    // Sanitize content early to prevent null bytes and other problematic characters
+    content = sanitizeTextContent(content);
+    console.log('🧹 Content sanitized for database safety');
     }
 
-    // Combine content with additional info if provided
-    const finalContent = additionalInfo
+    // Combine content and additional info, then sanitize everything
+    const finalContent = additionalInfo 
       ? `${content}\n\nAdditional Notes:\n${additionalInfo}`
       : content;
+    
+    const sanitizedContent = sanitizeTextContent(finalContent);
 
     // Create submission record
     const submission = await prisma.submission.create({
       data: {
         questionId: question.id,
         userId: null, // Anonymous submission
-        submissionContent: finalContent,
+        submissionContent: sanitizedContent,
         status: 'PROCESSING',
         assessmentResult: undefined, // Will be updated after assessment
       },
@@ -207,10 +211,8 @@ export async function submitAssessment(
         console.log('✅ Regular assessment completed');
       }
 
-      // Final sanitization pass before database storage
-      const sanitizedAssessmentResult = JSON.parse(
-        JSON.stringify(assessmentResult).replace(/[\u0000-\u001F\u007F]/g, '')
-      );
+      // Final sanitization pass before database storage using comprehensive utility
+      const sanitizedAssessmentResult = sanitizeObject(assessmentResult);
 
       console.log('🛡️ Final assessment result sanitized');
 
@@ -229,6 +231,9 @@ export async function submitAssessment(
     } catch (assessmentError) {
       console.error('❌ Assessment failed:', assessmentError);
       
+      const errorMessage = assessmentError instanceof Error ? assessmentError.message : 'Unknown error';
+      const sanitizedErrorMessage = sanitizeTextContent(errorMessage);
+      
       // Update submission with error result
       await prisma.submission.update({
         where: { id: submission.id },
@@ -236,7 +241,7 @@ export async function submitAssessment(
           status: 'FAILED',
           assessmentResult: {
             remark: 'Needs Improvement',
-            feedback: `Assessment failed: ${assessmentError instanceof Error ? assessmentError.message : 'Unknown error'}`,
+            feedback: `Assessment failed: ${sanitizedErrorMessage}`,
             criteria_met: [],
             areas_for_improvement: ['Submission processing'],
             confidence: 0.1,

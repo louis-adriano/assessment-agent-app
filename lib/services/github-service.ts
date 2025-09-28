@@ -1,4 +1,5 @@
 import { Octokit } from '@octokit/rest';
+import { safeBase64ToUtf8, sanitizeTextContent } from '../utils/sanitization';
 
 export interface GitHubRepoInfo {
   owner: string;
@@ -156,7 +157,7 @@ export class GitHubService {
           });
 
           if ('content' in fileData && fileData.content) {
-            const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
+            const content = safeBase64ToUtf8(fileData.content);
             files.push({
               path: item.path,
               content,
@@ -207,7 +208,7 @@ export class GitHubService {
         });
 
         if ('content' in data && data.content) {
-          return Buffer.from(data.content, 'base64').toString('utf-8');
+          return safeBase64ToUtf8(data.content);
         }
       } catch (error) {
         // File doesn't exist, try next
