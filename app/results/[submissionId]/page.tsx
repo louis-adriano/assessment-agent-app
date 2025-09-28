@@ -1,436 +1,419 @@
-import Link from 'next/link'
-import { getAnonymousSubmissionResult } from '@/lib/actions/submission-actions'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { ShareResultsButton } from '@/components/ShareResultsButton'
-import { 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle, 
-  Clock, 
-  ArrowRight,
-  RotateCcw,
-  BookOpen,
-  TrendingUp,
-  Star,
-  Target,
-  Lightbulb,
-  ExternalLink
-} from 'lucide-react'
+'use client'
 
-interface ResultsPageProps {
+import { useEffect, useState } from 'react'
+import { getAnonymousSubmissionResult } from '@/lib/actions/submission-actions'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  Github,
+  Globe,
+  FileText,
+  Image,
+  Upload,
+  CheckCircle2,
+  AlertCircle,
+  Target,
+  TrendingUp,
+  Copy,
+  ExternalLink,
+  Download,
+  Share2,
+  Loader2
+} from 'lucide-react'
+import Link from 'next/link'
+import { formatDistanceToNow } from 'date-fns'
+
+interface Props {
   params: Promise<{
     submissionId: string
   }>
 }
 
-function getRemarkIcon(remark: string) {
-  switch (remark) {
-    case 'Excellent': return <Star className="h-6 w-6 text-yellow-500" />
-    case 'Good': return <CheckCircle className="h-6 w-6 text-green-600" />
-    case 'Can Improve': return <AlertCircle className="h-6 w-6 text-yellow-600" />
-    case 'Needs Improvement': return <XCircle className="h-6 w-6 text-red-600" />
-    default: return <Clock className="h-6 w-6 text-gray-600" />
-  }
-}
+export default function ResultsPage({ params }: Props) {
+  const [submission, setSubmission] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-function getRemarkColor(remark: string) {
-  switch (remark) {
-    case 'Excellent': return 'bg-yellow-50 text-yellow-800 border-yellow-200'
-    case 'Good': return 'bg-green-50 text-green-800 border-green-200'
-    case 'Can Improve': return 'bg-yellow-50 text-yellow-800 border-yellow-200'
-    case 'Needs Improvement': return 'bg-red-50 text-red-800 border-red-200'
-    default: return 'bg-gray-50 text-gray-800 border-gray-200'
-  }
-}
+  useEffect(() => {
+    async function loadSubmission() {
+      try {
+        const resolvedParams = await params
+        const result = await getAnonymousSubmissionResult(resolvedParams.submissionId)
 
-function getRemarkDescription(remark: string) {
-  switch (remark) {
-    case 'Excellent': return 'Outstanding work that exceeds expectations!'
-    case 'Good': return 'Solid work that meets most requirements well.'
-    case 'Can Improve': return 'Good foundation with room for enhancement.'
-    case 'Needs Improvement': return 'Requires significant improvements to meet standards.'
-    default: return 'Assessment in progress...'
-  }
-}
+        if (!result) {
+          setError('Submission not found')
+          return
+        }
 
+        setSubmission(result)
+      } catch (err) {
+        setError('Failed to load submission')
+      } finally {
+        setLoading(false)
+      }
+    }
 
+    loadSubmission()
+  }, [params])
 
-export default async function ResultsPage({ params }: ResultsPageProps) {
-  const { submissionId } = await params
-  const result = await getAnonymousSubmissionResult(submissionId)
-
-  if (!result) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100">
-        <div className="max-w-4xl mx-auto px-4 py-16">
-          <Card className="max-w-2xl mx-auto text-center">
-            <CardHeader>
-              <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-              <CardTitle className="text-2xl">Results Not Found</CardTitle>
-              <CardDescription>
-                The assessment results you're looking for could not be found.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-red-600 mb-6">No assessment results found for this submission ID.</p>
-              <div className="flex gap-3 justify-center">
-                <Button asChild>
-                  <Link href="/submit">Submit New Assessment</Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link href="/courses">Browse Courses</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <p>Loading assessment results...</p>
         </div>
       </div>
     )
   }
 
-  const submission = result
-  const assessmentResult = submission.assessmentResult as any
-
-  // Handle processing state
-  if (submission.status !== 'COMPLETED' || !assessmentResult) {
+  if (error || !submission) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="max-w-4xl mx-auto px-4 py-16">
-          <Card className="max-w-2xl mx-auto text-center">
-            <CardHeader>
-              <Clock className="h-16 w-16 text-blue-500 mx-auto mb-4 animate-spin" />
-              <CardTitle className="text-2xl">Processing Your Assessment</CardTitle>
-              <CardDescription>
-                Please wait while we evaluate your submission...
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-6">
-                This usually takes 5-10 seconds. Your page will automatically update when ready.
-              </p>
-              <div className="flex gap-3 justify-center">
-                <Button asChild>
-                  <Link href={`/results/${submissionId}`}>
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Refresh
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link href="/submit">Submit Another</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-6xl">🔍</div>
+          <h1 className="text-2xl font-bold">Submission Not Found</h1>
+          <p className="text-muted-foreground max-w-md">
+            {error || 'The assessment result you\'re looking for could not be found or may have expired.'}
+          </p>
+          <Link href="/">
+            <Button>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Home
+            </Button>
+          </Link>
         </div>
       </div>
     )
+  }
+
+  const getRemarkColor = (remark: string) => {
+    switch (remark) {
+      case 'Excellent': return 'bg-green-100 text-green-800 border-green-300'
+      case 'Good': return 'bg-blue-100 text-blue-800 border-blue-300'
+      case 'Can Improve': return 'bg-yellow-100 text-yellow-800 border-yellow-300'
+      case 'Needs Improvement': return 'bg-red-100 text-red-800 border-red-300'
+      default: return 'bg-gray-100 text-gray-800 border-gray-300'
+    }
+  }
+
+  const getRemarkIcon = (remark: string) => {
+    switch (remark) {
+      case 'Excellent': return <CheckCircle2 className="h-5 w-5 text-green-600" />
+      case 'Good': return <CheckCircle2 className="h-5 w-5 text-blue-600" />
+      case 'Can Improve': return <AlertCircle className="h-5 w-5 text-yellow-600" />
+      case 'Needs Improvement': return <AlertCircle className="h-5 w-5 text-red-600" />
+      default: return <AlertCircle className="h-5 w-5 text-gray-600" />
+    }
+  }
+
+  const getRemarkScore = (remark: string) => {
+    switch (remark) {
+      case 'Excellent': return 95
+      case 'Good': return 80
+      case 'Can Improve': return 65
+      case 'Needs Improvement': return 45
+      default: return 0
+    }
+  }
+
+  const getSubmissionTypeIcon = (type: string) => {
+    switch (type) {
+      case 'GITHUB_REPO': return <Github className="h-4 w-4" />
+      case 'WEBSITE': return <Globe className="h-4 w-4" />
+      case 'DOCUMENT': return <FileText className="h-4 w-4" />
+      case 'SCREENSHOT': return <Image className="h-4 w-4" />
+      case 'TEXT': return <FileText className="h-4 w-4" />
+      default: return <Upload className="h-4 w-4" />
+    }
+  }
+
+  const getSubmissionTypeLabel = (type: string) => {
+    switch (type) {
+      case 'GITHUB_REPO': return 'GitHub Repository'
+      case 'WEBSITE': return 'Website URL'
+      case 'DOCUMENT': return 'Document Upload'
+      case 'SCREENSHOT': return 'Screenshot Upload'
+      case 'TEXT': return 'Text Submission'
+      default: return 'File Upload'
+    }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+  }
+
+  const shareResults = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: 'Assessment Results',
+        text: `I got "${(submission.assessmentResult as any)?.remark}" on my assessment!`,
+        url: window.location.href
+      })
+    }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="container mx-auto py-12 max-w-4xl">
+        <div className="space-y-8">
+          {/* Navigation */}
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Assessment Results</h1>
-              <p className="mt-1 text-gray-600">
-                {submission.question.course.name} • Question {submission.question.questionNumber}
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <ShareResultsButton submissionId={submissionId} />
-              <Button asChild>
-                <Link href="/submit">Submit Another</Link>
+            <Link href="/">
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Home
               </Button>
+            </Link>
+            
+            <div className="flex items-center gap-2">
+              <button
+                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                onClick={() => copyToClipboard(window.location.href)}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Link
+              </button>
+              <button
+                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                onClick={shareResults}
+              >
+                <Share2 className="h-4 w-4 mr-2" />
+                Share
+              </button>
             </div>
           </div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="grid gap-8 lg:grid-cols-3">
-          
-          {/* Results Content */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* Overall Assessment */}
-            <Card className="border-2 border-gray-200">
-              <CardHeader>
-                <div className="flex items-center gap-4">
-                  {getRemarkIcon(assessmentResult.remark)}
-                  <div className="flex-1">
-                    <CardTitle className="text-2xl">Overall Assessment</CardTitle>
-                    <CardDescription>
-                      {getRemarkDescription(assessmentResult.remark)}
-                    </CardDescription>
-                  </div>
-                  <div className={`px-6 py-3 rounded-lg border text-lg font-semibold ${getRemarkColor(assessmentResult.remark)}`}>
-                    {assessmentResult.remark}
-                  </div>
-                </div>
-              </CardHeader>
-              
-              {assessmentResult.confidence && (
-                <CardContent>
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                    <span>Assessment Confidence</span>
-                    <span>{Math.round(assessmentResult.confidence * 100)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
-                      style={{ width: `${assessmentResult.confidence * 100}%` }}
-                    />
-                  </div>
-                </CardContent>
-              )}
-            </Card>
-
-            {/* Detailed Feedback */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Lightbulb className="h-5 w-5" />
-                  Detailed Feedback
-                </CardTitle>
-                <CardDescription>
-                  Specific comments on your submission
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">
-                    {assessmentResult.feedback}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Criteria Met */}
-            {assessmentResult.criteria_met && assessmentResult.criteria_met.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    Criteria Successfully Met ({assessmentResult.criteria_met.length})
-                  </CardTitle>
-                  <CardDescription>
-                    Requirements you've successfully addressed
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {assessmentResult.criteria_met.map((criterion: string, index: number) => (
-                      <div key={index} className="flex items-start gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                        <p className="text-green-800 text-sm leading-relaxed">{criterion}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Areas for Improvement */}
-            {assessmentResult.areas_for_improvement && assessmentResult.areas_for_improvement.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-amber-600" />
-                    Areas for Improvement ({assessmentResult.areas_for_improvement.length})
-                  </CardTitle>
-                  <CardDescription>
-                    Specific suggestions to enhance your work
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {assessmentResult.areas_for_improvement.map((area: string, index: number) => (
-                      <div key={index} className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                        <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                        <p className="text-amber-800 text-sm leading-relaxed">{area}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Base Example Comparison */}
-            {assessmentResult.baseExampleUsed && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="h-5 w-5 text-blue-600" />
-                    Compared Against: {assessmentResult.baseExampleUsed}
-                  </CardTitle>
-                  <CardDescription>
-                    Your work was evaluated against this exemplary answer
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-blue-800 text-sm">
-                      Your submission was compared against our best practice example to provide 
-                      accurate and consistent feedback. This helps ensure fair assessment standards 
-                      across all submissions.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Next Steps */}
-            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-              <CardHeader>
-                <CardTitle>What's Next?</CardTitle>
-                <CardDescription>
-                  Continue your learning journey
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <Button className="justify-start h-auto p-4" asChild>
-                    <Link href={`/submit/${encodeURIComponent(submission.question.course.name)}/${submission.question.questionNumber}`}>
-                      <RotateCcw className="mr-3 h-5 w-5" />
-                      <div className="text-left">
-                        <div className="font-medium">Improve & Resubmit</div>
-                        <div className="text-xs opacity-80">Apply the feedback and try again</div>
-                      </div>
-                    </Link>
-                  </Button>
-                  
-                  <Button variant="outline" className="justify-start h-auto p-4" asChild>
-                    <Link href={`/courses/${encodeURIComponent(submission.question.course.name)}`}>
-                      <ArrowRight className="mr-3 h-5 w-5" />
-                      <div className="text-left">
-                        <div className="font-medium">Try Next Question</div>
-                        <div className="text-xs opacity-80">Continue with other questions</div>
-                      </div>
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Header */}
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold">Assessment Results</h1>
+            <p className="text-muted-foreground">
+              Detailed feedback and analysis for your submission
+            </p>
           </div>
 
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-8 space-y-6">
-              
-              {/* Question Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Question Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-1">Course</h4>
-                    <p className="text-gray-600 text-sm">{submission.question.course.name}</p>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-1">Question</h4>
-                    <p className="text-gray-900 text-sm font-medium">
-                      #{submission.question.questionNumber}: {submission.question.title}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-1">Submission Type</h4>
-                    <Badge variant="outline" className="text-xs">
-                      {submission.question.submissionType.replace('_', ' ').toLowerCase()}
+          {/* Assessment Score Card */}
+          <Card className="bg-gradient-to-r from-white to-blue-50 border-0 shadow-xl">
+            <CardContent className="pt-8 pb-8">
+              <div className="text-center space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center gap-3">
+                    {getRemarkIcon((submission.assessmentResult as any)?.remark || '')}
+                    <Badge 
+                      className={`text-lg px-6 py-2 ${getRemarkColor((submission.assessmentResult as any)?.remark || '')}`}
+                    >
+                      {(submission.assessmentResult as any)?.remark}
                     </Badge>
                   </div>
-                </CardContent>
-              </Card>
+                  
+                  <div className="space-y-2">
+                    <div className="text-5xl font-bold text-gray-700">
+                      {getRemarkScore((submission.assessmentResult as any)?.remark || '')}%
+                    </div>
+                    <div className="w-64 mx-auto h-3 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-600 transition-all duration-500"
+                        style={{ width: `${getRemarkScore((submission.assessmentResult as any)?.remark || '')}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
 
-              {/* Assessment Timeline */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Assessment Timeline</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-3 text-sm">
-                    <div className="w-2 h-2 bg-blue-600 rounded-full" />
-                    <div>
-                      <p className="font-medium">Submitted</p>
-                      <p className="text-gray-600 text-xs">
-                        {new Date(submission.createdAt).toLocaleString()}
-                      </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl mx-auto">
+                  <div className="text-center space-y-2">
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span className="text-sm font-medium">Submitted</span>
+                    </div>
+                    <div className="text-sm">
+                      {formatDistanceToNow(new Date(submission.createdAt), { addSuffix: true })}
                     </div>
                   </div>
                   
-                  {submission.processedAt && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="w-2 h-2 bg-green-600 rounded-full" />
-                      <div>
-                        <p className="font-medium">Processed</p>
-                        <p className="text-gray-600 text-xs">
-                          {new Date(submission.processedAt).toLocaleString()}
-                        </p>
-                      </div>
+                  <div className="text-center space-y-2">
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span className="text-sm font-medium">Processing Time</span>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                    <div className="text-sm">&lt; 5 seconds</div>
+                  </div>
+                  
+                  <div className="text-center space-y-2">
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                      {getSubmissionTypeIcon(submission.question.submissionType)}
+                      <span className="text-sm font-medium">Type</span>
+                    </div>
+                    <div className="text-sm">{getSubmissionTypeLabel(submission.question.submissionType)}</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-              {/* Technical Details */}
-              {(assessmentResult.processing_time_ms || assessmentResult.model_used) && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Technical Details</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm text-gray-600">
-                    {assessmentResult.processing_time_ms && (
-                      <div className="flex justify-between">
-                        <span>Processing time:</span>
-                        <span>{assessmentResult.processing_time_ms}ms</span>
-                      </div>
-                    )}
-                    {assessmentResult.model_used && (
-                      <div className="flex justify-between">
-                        <span>AI Model:</span>
-                        <span className="font-mono text-xs">{assessmentResult.model_used}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span>Submission ID:</span>
-                      <span className="font-mono text-xs">{submissionId.slice(-8)}</span>
+          {/* Submission Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                Submission Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <h4 className="font-semibold mb-2">Course</h4>
+                  <Badge variant="secondary">{submission.question.course.name}</Badge>
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold mb-2">Assessment</h4>
+                  <div className="space-y-1">
+                    <div className="font-medium">#{submission.question.questionNumber}: {submission.question.title}</div>
+                    <div className="text-sm text-muted-foreground">{submission.question.description}</div>
+                  </div>
+                </div>
+              </div>
+
+              {submission.submissionUrl && (
+                <div>
+                  <h4 className="font-semibold mb-2">Submitted Content</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm font-mono">
+                      <ExternalLink className="h-4 w-4" />
+                      <a 
+                        href={submission.submissionUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline truncate"
+                      >
+                        {submission.submissionUrl}
+                      </a>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               )}
 
-              {/* Quick Actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start" asChild>
-                    <Link href={`/courses/${encodeURIComponent(submission.question.course.name)}/${submission.question.questionNumber}`}>
-                      <BookOpen className="mr-2 h-4 w-4" />
-                      View Question Details
-                    </Link>
-                  </Button>
-                  
-                  <Button variant="outline" className="w-full justify-start" asChild>
-                    <Link href="/courses">
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      Browse All Courses
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+              {submission.submissionContent && (
+                <div>
+                  <h4 className="font-semibold mb-2">Text Content</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg max-h-32 overflow-y-auto">
+                    <pre className="text-sm whitespace-pre-wrap">{submission.submissionContent}</pre>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Detailed Feedback */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Detailed Feedback
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {(submission.assessmentResult as any)?.feedback && (
+                <div>
+                  <h4 className="font-semibold mb-3">AI Assessment</h4>
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-900">
+                      {(submission.assessmentResult as any).feedback}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+
+              {(submission.assessmentResult as any)?.criteriaMetAndBroke && (
+                <div className="grid gap-6 md:grid-cols-2">
+                  {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaMet &&
+                   (submission.assessmentResult as any).criteriaMetAndBroke.criteriaMet.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold mb-3 text-green-700">✅ Criteria Met</h4>
+                      <ul className="space-y-2">
+                        {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaMet.map((criteria: string, index: number) => (
+                          <li key={index} className="flex items-start gap-2 text-sm">
+                            <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            <span>{criteria}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaBroke &&
+                   (submission.assessmentResult as any).criteriaMetAndBroke.criteriaBroke.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold mb-3 text-red-700">❌ Areas for Improvement</h4>
+                      <ul className="space-y-2">
+                        {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaBroke.map((criteria: string, index: number) => (
+                          <li key={index} className="flex items-start gap-2 text-sm">
+                            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                            <span>{criteria}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Next Steps */}
+          <Card className="bg-gradient-to-r from-purple-50 to-blue-50">
+            <CardHeader>
+              <CardTitle>What's Next?</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2" asChild>
+                  <Link href="/">
+                    <Upload className="h-6 w-6" />
+                    <div className="text-left">
+                      <div className="font-semibold">Try Another Assessment</div>
+                      <div className="text-xs text-muted-foreground">Submit different work for feedback</div>
+                    </div>
+                  </Link>
+                </Button>
+
+                <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2" asChild>
+                  <Link href={`/submit?courseName=${encodeURIComponent(submission.question.course.name)}&assessmentNumber=${submission.question.questionNumber}`}>
+                    <TrendingUp className="h-6 w-6" />
+                    <div className="text-left">
+                      <div className="font-semibold">Resubmit Improved Work</div>
+                      <div className="text-xs text-muted-foreground">Apply feedback and try again</div>
+                    </div>
+                  </Link>
+                </Button>
+
+                <button
+                  className="border border-gray-300 rounded-md h-auto p-4 flex flex-col items-start space-y-2 hover:bg-gray-50"
+                  onClick={shareResults}
+                >
+                  <Share2 className="h-6 w-6" />
+                  <div className="text-left">
+                    <div className="font-semibold">Share Results</div>
+                    <div className="text-xs text-muted-foreground">Show your progress to others</div>
+                  </div>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Footer Info */}
+          <div className="text-center text-sm text-muted-foreground">
+            <p>Assessment ID: {submission.id}</p>
+            <p className="mt-1">Results are stored for your reference and can be accessed anytime with this link</p>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

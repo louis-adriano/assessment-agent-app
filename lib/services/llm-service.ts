@@ -192,6 +192,39 @@ Provide specific, actionable feedback that helps the student improve.
   return prompt
 }
 
+// Sanitize text for PostgreSQL database compatibility
+function sanitizeForDatabase(text: string): string {
+  if (!text) return text;
+
+  // Aggressive sanitization for PostgreSQL compatibility
+  return text
+    // Remove literal null bytes
+    .replace(/\u0000/g, '')
+    // Remove escaped null bytes in various formats
+    .replace(/\\u0000/g, '')
+    .replace(/\\x00/g, '')
+    .replace(/\0/g, '')
+    // Remove other control characters
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    // Remove Unicode non-characters
+    .replace(/\uFFFE|\uFFFF/g, '')
+    // Remove any remaining Unicode escape sequences that could be problematic
+    .replace(/\\u[\dA-Fa-f]{4}/g, (match) => {
+      const code = parseInt(match.slice(2), 16);
+      // Allow only safe printable characters
+      if (code >= 0x0020 && code <= 0x007E) {
+        return String.fromCharCode(code);
+      } else if (code >= 0x00A0 && code <= 0xFFFF && code !== 0xFFFE && code !== 0xFFFF) {
+        // Allow extended Unicode but exclude problematic ranges
+        return String.fromCharCode(code);
+      }
+      return ''; // Remove everything else
+    })
+    // Replace any remaining problematic sequences
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    .trim();
+}
+
 // Get submission-type specific guidelines
 function getSubmissionTypeGuidelines(submissionType: SubmissionType): string {
   switch (submissionType) {
@@ -330,12 +363,19 @@ export async function assessSubmission(request: AssessmentRequest): Promise<Asse
       throw new Error('No response from LLM')
     }
 
+    // Sanitize response content to remove null bytes and other problematic characters
+    const sanitizedContent = sanitizeForDatabase(responseContent)
+    console.log('📝 Original response length:', responseContent.length);
+    console.log('📝 Sanitized response length:', sanitizedContent.length);
+    console.log('📝 Contains null bytes:', responseContent.includes('\u0000'));
+    console.log('📝 Contains escaped null bytes:', responseContent.includes('\\u0000'));
+
     // Parse the JSON response
     let assessmentData: any
     try {
-      assessmentData = JSON.parse(responseContent)
+      assessmentData = JSON.parse(sanitizedContent)
     } catch (parseError) {
-      console.error('Failed to parse LLM response as JSON:', responseContent)
+      console.error('Failed to parse LLM response as JSON:', sanitizedContent)
       throw new Error('Invalid JSON response from LLM')
     }
 
@@ -369,15 +409,23 @@ export async function assessSubmission(request: AssessmentRequest): Promise<Asse
 
     const processingTime = Date.now() - startTime
 
-    return {
+    const result = {
       remark: assessmentData.remark,
-      feedback: assessmentData.feedback,
-      criteria_met: assessmentData.criteria_met,
-      areas_for_improvement: assessmentData.areas_for_improvement,
+      feedback: sanitizeForDatabase(assessmentData.feedback),
+      criteria_met: assessmentData.criteria_met.map((item: string) => sanitizeForDatabase(item)),
+      areas_for_improvement: assessmentData.areas_for_improvement.map((item: string) => sanitizeForDatabase(item)),
       confidence,
       processing_time_ms: processingTime,
       model_used: selectedModel
-    }
+    };
+
+    // Final sanitization check - convert the whole object to JSON and back to clean any remaining issues
+    const resultJson = JSON.stringify(result);
+    const cleanedJson = sanitizeForDatabase(resultJson);
+    console.log('📝 Final result contains null bytes:', resultJson.includes('\u0000'));
+    console.log('📝 Final result contains escaped null bytes:', resultJson.includes('\\u0000'));
+
+    return JSON.parse(cleanedJson);
 
   } catch (error) {
     console.error('Assessment error:', error)

@@ -8,9 +8,11 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Github, Globe, FileText, Image, Upload, CheckCircle, XCircle } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Loader2, Github, Globe, FileText, Image, Upload, CheckCircle, XCircle, ArrowLeft, Info } from 'lucide-react'
 import { getCourseByName } from '@/lib/actions/lookup-actions'
-import { handleFormSubmission } from '@/lib/actions/submit-page-actions'
+import { submitAnonymousAssessment } from '@/lib/actions/submission-actions'
+import Link from 'next/link'
 
 interface Course {
   id: string
@@ -29,409 +31,449 @@ interface Question {
 }
 
 function SubmitPageContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [course, setCourse] = useState<Course | null>(null)
   const [question, setQuestion] = useState<Question | null>(null)
-  const [submissionContent, setSubmissionContent] = useState('')
-  const [additionalInfo, setAdditionalInfo] = useState('')
-  const [validationError, setValidationError] = useState('')
-  const [githubValidation, setGithubValidation] = useState<{isValid: boolean, message: string} | null>(null)
-
-  // Get course and question from URL params
-  const courseName = searchParams.get('course')
-  const questionNumber = searchParams.get('question')
+  const [submissionData, setSubmissionData] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [submissionId, setSubmissionId] = useState('')
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  
+  const courseName = searchParams.get('courseName')
+  const assessmentNumber = searchParams.get('assessmentNumber')
 
   useEffect(() => {
-    if (courseName && questionNumber) {
+    if (courseName && assessmentNumber) {
       loadCourseAndQuestion()
     }
-  }, [courseName, questionNumber])
+  }, [courseName, assessmentNumber])
 
   const loadCourseAndQuestion = async () => {
-    if (!courseName || !questionNumber) return
-
+    if (!courseName || !assessmentNumber) return
+    
     try {
-      const result = await getCourseByName(courseName)
-      if (result.success && result.data) {
-        setCourse(result.data)
-        const q = result.data.questions.find(
-          (q: Question) => q.questionNumber === parseInt(questionNumber)
+      const courseResult = await getCourseByName(courseName)
+      if (courseResult.success && courseResult.data) {
+        setCourse(courseResult.data)
+        const foundQuestion = courseResult.data.questions.find(
+          (q: any) => q.questionNumber === parseInt(assessmentNumber)
         )
-        if (q) {
-          setQuestion(q)
+        if (foundQuestion) {
+          setQuestion(foundQuestion)
         } else {
-          setValidationError(`Question ${questionNumber} not found in course "${courseName}"`)
+          setError(`Assessment #${assessmentNumber} not found in course "${courseName}"`)
         }
       } else {
-        setValidationError(result.error || `Course "${courseName}" not found`)
+        setError(`Course "${courseName}" not found`)
       }
-    } catch (error) {
-      console.error('Error loading course:', error)
-      setValidationError('Failed to load course information')
+    } catch (err) {
+      setError('Failed to load course information')
     }
   }
 
-  const validateGitHubUrl = (url: string) => {
-    if (!url.trim()) {
-      setGithubValidation(null)
-      return
+  const validateSubmission = (): string[] => {
+    const errors: string[] = []
+
+    if (!question) return ['Question not loaded']
+
+    switch (question.submissionType) {
+      case 'GITHUB_REPO':
+        if (!submissionData.trim()) {
+          errors.push('GitHub repository URL is required')
+        } else if (!submissionData.match(/^https:\/\/github\.com\/[\w-]+\/[\w.-]+/)) {
+          errors.push('Please provide a valid GitHub repository URL (e.g., https://github.com/username/repo)')
+        }
+        break
+
+      case 'WEBSITE':
+        if (!submissionData.trim()) {
+          errors.push('Website URL is required')
+        } else if (!submissionData.match(/^https?:\/\/.+/)) {
+          errors.push('Please provide a valid website URL starting with http:// or https://')
+        }
+        break
+
+      case 'TEXT':
+        if (!submissionData.trim()) {
+          errors.push('Text content is required')
+        } else if (submissionData.trim().length < 10) {
+          errors.push('Please provide at least 10 characters of text')
+        }
+        break
+
+      case 'DOCUMENT':
+      case 'SCREENSHOT':
+        if (!file) {
+          errors.push('File upload is required')
+        } else {
+          const maxSize = 10 * 1024 * 1024 // 10MB
+          if (file.size > maxSize) {
+            errors.push('File size must be less than 10MB')
+          }
+          
+          if (question.submissionType === 'DOCUMENT') {
+            const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
+            if (!allowedTypes.includes(file.type)) {
+              errors.push('Document must be PDF, Word document, or text file')
+            }
+          } else if (question.submissionType === 'SCREENSHOT') {
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+            if (!allowedTypes.includes(file.type)) {
+              errors.push('Screenshot must be JPEG, PNG, GIF, or WebP image')
+            }
+          }
+        }
+        break
     }
-
-    const githubPatterns = [
-      /^https?:\/\/(www\.)?github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+\/?.*$/,
-      /^github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+\/?.*$/
-    ]
-
-    const isValid = githubPatterns.some(pattern => pattern.test(url.trim()))
     
-    if (isValid) {
-      setGithubValidation({
-        isValid: true,
-        message: 'Valid GitHub repository URL'
-      })
-    } else {
-      setGithubValidation({
-        isValid: false,
-        message: 'Invalid GitHub URL format. Expected: https://github.com/owner/repository'
-      })
-    }
+    return errors
   }
 
-  const handleGitHubUrlChange = (url: string) => {
-    setSubmissionContent(url)
-    if (question?.submissionType === 'GITHUB_REPO') {
-      validateGitHubUrl(url)
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!course || !question) {
-      setValidationError('Course or question not loaded')
+    const errors = validateSubmission()
+    setValidationErrors(errors)
+    
+    if (errors.length > 0) {
       return
     }
-
-    if (!submissionContent.trim()) {
-      setValidationError('Submission content is required')
-      return
-    }
-
-    // GitHub-specific validation
-    if (question.submissionType === 'GITHUB_REPO' && githubValidation && !githubValidation.isValid) {
-      setValidationError('Please provide a valid GitHub repository URL')
+    
+    if (!question || !course) {
+      setError('Course or question not loaded')
       return
     }
 
     setIsSubmitting(true)
-    setValidationError('')
-
+    setError('')
+    setSuccess('')
+    
     try {
       const formData = new FormData()
       formData.append('courseName', course.name)
-      formData.append('questionNumber', question.questionNumber.toString())
-      formData.append('submissionType', question.submissionType)
-      formData.append('content', submissionContent)
-      formData.append('additionalInfo', additionalInfo)
+      formData.append('assessmentNumber', question.questionNumber.toString())
+      
+      if (['GITHUB_REPO', 'WEBSITE', 'TEXT'].includes(question.submissionType)) {
+        formData.append('submissionContent', submissionData)
+      }
 
-      await handleFormSubmission(formData)
-    } catch (error) {
-      console.error('Submission error:', error)
-      setValidationError(error instanceof Error ? error.message : 'Failed to submit assessment')
+      if (file && ['DOCUMENT', 'SCREENSHOT'].includes(question.submissionType)) {
+        formData.append('file', file)
+      }
+      
+      const result = await submitAnonymousAssessment(formData)
+      
+      if (result.success && result.submissionId) {
+        setSuccess('Assessment completed successfully!')
+        setSubmissionId(result.submissionId)
+        // Redirect to results page after 2 seconds
+        setTimeout(() => {
+          router.push(`/results/${result.submissionId}`)
+        }, 2000)
+      } else {
+        setError(result.error || 'Submission failed')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  if (!courseName || !questionNumber) {
-    return (
-      <div className="container mx-auto py-8">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">
-              Missing course or question parameters. Please access this page through a proper course link.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  if (validationError && !course) {
-    return (
-      <div className="container mx-auto py-8">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <XCircle className="w-12 h-12 text-red-500 mx-auto" />
-              <p className="text-red-600">{validationError}</p>
-              <Button onClick={() => router.back()} variant="outline">
-                Go Back
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  const getSubmissionIcon = (type: string) => {
+  const getSubmissionTypeIcon = (type: string) => {
     switch (type) {
-      case 'GITHUB_REPO':
-        return <Github className="w-5 h-5" />
-      case 'WEBSITE':
-        return <Globe className="w-5 h-5" />
-      case 'DOCUMENT':
-        return <FileText className="w-5 h-5" />
-      case 'SCREENSHOT':
-        return <Image className="w-5 h-5" />
-      case 'TEXT':
-        return <FileText className="w-5 h-5" />
-      default:
-        return <Upload className="w-5 h-5" />
+      case 'GITHUB_REPO': return <Github className="h-5 w-5" />
+      case 'WEBSITE': return <Globe className="h-5 w-5" />
+      case 'DOCUMENT': return <FileText className="h-5 w-5" />
+      case 'SCREENSHOT': return <Image className="h-5 w-5" />
+      case 'TEXT': return <FileText className="h-5 w-5" />
+      default: return <Upload className="h-5 w-5" />
     }
   }
 
-  const renderSubmissionField = () => {
+  const getSubmissionTypeLabel = (type: string) => {
+    switch (type) {
+      case 'GITHUB_REPO': return 'GitHub Repository'
+      case 'WEBSITE': return 'Website URL'
+      case 'DOCUMENT': return 'Document Upload'
+      case 'SCREENSHOT': return 'Screenshot Upload'
+      case 'TEXT': return 'Text Submission'
+      default: return 'File Upload'
+    }
+  }
+
+  const renderSubmissionForm = () => {
     if (!question) return null
 
     switch (question.submissionType) {
-      case 'TEXT':
-        return (
-          <div className="space-y-2">
-            <Label htmlFor="content">Your Response</Label>
-            <Textarea
-              id="content"
-              placeholder="Enter your text response here..."
-              value={submissionContent}
-              onChange={(e) => setSubmissionContent(e.target.value)}
-              rows={8}
-              className="min-h-[200px]"
-            />
-          </div>
-        )
-
       case 'GITHUB_REPO':
         return (
-          <div className="space-y-2">
-            <Label htmlFor="content">GitHub Repository URL</Label>
+          <div className="space-y-4">
+            <Label htmlFor="repo-url">GitHub Repository URL</Label>
             <Input
-              id="content"
+              id="repo-url"
               type="url"
-              placeholder="https://github.com/username/repository-name"
-              value={submissionContent}
-              onChange={(e) => handleGitHubUrlChange(e.target.value)}
-              className={githubValidation?.isValid === false ? 'border-red-500' : ''}
+              placeholder="https://github.com/username/repository"
+              value={submissionData}
+              onChange={(e) => setSubmissionData(e.target.value)}
+              className="font-mono"
             />
-            {githubValidation && (
-              <div className={`flex items-center gap-2 text-sm ${
-                githubValidation.isValid ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {githubValidation.isValid ? (
-                  <CheckCircle className="w-4 h-4" />
-                ) : (
-                  <XCircle className="w-4 h-4" />
-                )}
-                {githubValidation.message}
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Provide a link to your GitHub repository. The repository should be public for assessment.
-            </p>
+            <div className="text-sm text-muted-foreground">
+              <Info className="h-4 w-4 inline mr-1" />
+              Make sure your repository is public or provide access to our assessment bot
+            </div>
           </div>
         )
 
       case 'WEBSITE':
         return (
-          <div className="space-y-2">
-            <Label htmlFor="content">Website URL</Label>
+          <div className="space-y-4">
+            <Label htmlFor="website-url">Website URL</Label>
             <Input
-              id="content"
+              id="website-url"
               type="url"
-              placeholder="https://yourwebsite.com"
-              value={submissionContent}
-              onChange={(e) => setSubmissionContent(e.target.value)}
+              placeholder="https://your-website.com"
+              value={submissionData}
+              onChange={(e) => setSubmissionData(e.target.value)}
+              className="font-mono"
             />
-            <p className="text-xs text-muted-foreground">
-              Provide a link to your deployed website or web application.
-            </p>
+            <div className="text-sm text-muted-foreground">
+              <Info className="h-4 w-4 inline mr-1" />
+              We'll test your website for functionality and accessibility
+            </div>
+          </div>
+        )
+
+      case 'TEXT':
+        return (
+          <div className="space-y-4">
+            <Label htmlFor="text-content">Your Submission</Label>
+            <Textarea
+              id="text-content"
+              placeholder="Enter your text submission here..."
+              value={submissionData}
+              onChange={(e) => setSubmissionData(e.target.value)}
+              className="min-h-32"
+            />
+            <div className="text-sm text-muted-foreground">
+              <Info className="h-4 w-4 inline mr-1" />
+              Provide detailed content for accurate assessment
+            </div>
           </div>
         )
 
       case 'DOCUMENT':
         return (
-          <div className="space-y-2">
-            <Label htmlFor="content">Document URL or Content</Label>
-            <Textarea
-              id="content"
-              placeholder="Paste your document content here or provide a link to your document..."
-              value={submissionContent}
-              onChange={(e) => setSubmissionContent(e.target.value)}
-              rows={8}
-              className="min-h-[200px]"
+          <div className="space-y-4">
+            <Label htmlFor="document-file">Upload Document</Label>
+            <Input
+              id="document-file"
+              type="file"
+              accept=".pdf,.doc,.docx,.txt"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
-            <p className="text-xs text-muted-foreground">
-              You can paste document content directly or provide a link to a shared document (Google Docs, etc.).
-            </p>
+            <div className="text-sm text-muted-foreground">
+              <Info className="h-4 w-4 inline mr-1" />
+              Accepted formats: PDF, Word documents, or text files (max 10MB)
+            </div>
           </div>
         )
 
       case 'SCREENSHOT':
         return (
-          <div className="space-y-2">
-            <Label htmlFor="content">Image URL or Description</Label>
-            <Textarea
-              id="content"
-              placeholder="Provide a link to your image or describe your screenshot/diagram..."
-              value={submissionContent}
-              onChange={(e) => setSubmissionContent(e.target.value)}
-              rows={6}
+          <div className="space-y-4">
+            <Label htmlFor="screenshot-file">Upload Screenshot</Label>
+            <Input
+              id="screenshot-file"
+              type="file"
+              accept="image/*"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
-            <p className="text-xs text-muted-foreground">
-              Provide a link to your image file or describe the content of your screenshot/diagram.
-            </p>
+            <div className="text-sm text-muted-foreground">
+              <Info className="h-4 w-4 inline mr-1" />
+              Accepted formats: JPEG, PNG, GIF, WebP (max 10MB)
+            </div>
           </div>
         )
-
+        
       default:
         return (
-          <div className="space-y-2">
-            <Label htmlFor="content">Submission Content</Label>
-            <Textarea
-              id="content"
-              placeholder="Enter your submission content..."
-              value={submissionContent}
-              onChange={(e) => setSubmissionContent(e.target.value)}
-              rows={6}
-            />
+          <div className="text-center py-8 text-muted-foreground">
+            Unsupported submission type: {question.submissionType}
           </div>
         )
     }
   }
 
-  return (
-    <div className="container mx-auto py-8 max-w-3xl">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold">Submit Assessment</h1>
-          <p className="text-muted-foreground">
-            Submit your work for automated assessment and instant feedback
-          </p>
-        </div>
-
-        {/* Course and Question Info */}
-        {course && question && (
+  if (!courseName || !assessmentNumber) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="container mx-auto py-12 max-w-2xl">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                {getSubmissionIcon(question.submissionType)}
-                {question.title}
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{course.name}</Badge>
-                <Badge variant="secondary">Question {question.questionNumber}</Badge>
-                <Badge>{question.submissionType.replace('_', ' ')}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {question.description && (
-                  <div>
-                    <h4 className="font-medium mb-2">Requirements:</h4>
-                    <p className="text-sm text-muted-foreground">{question.description}</p>
-                  </div>
-                )}
-                {question.guidance && (
-                  <div>
-                    <h4 className="font-medium mb-2">Guidance:</h4>
-                    <p className="text-sm text-muted-foreground">{question.guidance}</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Submission Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Your Submission</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {renderSubmissionField()}
-          </CardContent>
-        </Card>
-
-        {/* Additional Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Additional Information (Optional)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="additionalInfo">Notes or Context</Label>
-              <Textarea
-                id="additionalInfo"
-                placeholder="Any additional context, notes, or explanations about your submission..."
-                value={additionalInfo}
-                onChange={(e) => setAdditionalInfo(e.target.value)}
-                rows={4}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Validation Error */}
-        {validationError && (
-          <Card className="border-red-200 bg-red-50">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-2 text-red-600">
-                <XCircle className="w-5 h-5" />
-                <p className="font-medium">{validationError}</p>
+              <Alert>
+                <XCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Invalid submission URL. Please access this page from a course assessment link.
+                </AlertDescription>
+              </Alert>
+              <div className="mt-4">
+                <Link href="/">
+                  <Button variant="outline">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Courses
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {/* Submit Button */}
-        <div className="flex justify-end space-x-4">
-          <Button type="button" variant="outline" onClick={() => router.back()}>
-            Cancel
-          </Button>
-          <Button 
-            type="submit" 
-            disabled={isSubmitting || !submissionContent.trim() || (question?.submissionType === 'GITHUB_REPO' && githubValidation?.isValid === false)}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              'Submit for Assessment'
-            )}
-          </Button>
         </div>
+      </div>
+    )
+  }
 
-        {/* Information */}
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <div className="text-sm space-y-2">
-              <p><strong>What happens next?</strong></p>
-              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li>Your submission will be processed immediately using AI assessment</li>
-                <li>You'll receive one of four grades: Excellent, Good, Can Improve, or Needs Improvement</li>
-                <li>Detailed feedback will explain your grade and provide improvement suggestions</li>
-                <li>Your results will be available via a unique link you can save or share</li>
-                <li>No personal information is stored - submissions are anonymous</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-      </form>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto py-12 max-w-3xl">
+        <div className="space-y-6">
+          {/* Navigation */}
+          <Link href="/">
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Courses
+            </Button>
+          </Link>
+
+          {/* Course and Question Info */}
+          {course && question && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{course.name}</Badge>
+                      <Badge variant="outline">Assessment #{question.questionNumber}</Badge>
+                    </div>
+                    <CardTitle className="text-2xl">{question.title}</CardTitle>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    {getSubmissionTypeIcon(question.submissionType)}
+                    <span className="text-sm font-medium">
+                      {getSubmissionTypeLabel(question.submissionType)}
+                    </span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold mb-2">Description</h3>
+                    <p className="text-muted-foreground">{question.description}</p>
+                  </div>
+                  
+                  {question.guidance && (
+                    <div>
+                      <h3 className="font-semibold mb-2">Guidance</h3>
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <p className="text-blue-900">{question.guidance}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Validation Errors */}
+          {validationErrors.length > 0 && (
+            <Alert variant="destructive">
+              <XCircle className="h-4 w-4" />
+              <AlertDescription>
+                <ul className="list-disc list-inside space-y-1">
+                  {validationErrors.map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive">
+              <XCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Success Alert */}
+          {success && (
+            <Alert className="border-green-200 bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                {success} Redirecting to results...
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Submission Form */}
+          {question && !success && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Submit Your Work</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {renderSubmissionForm()}
+                  
+                  <Button 
+                    type="submit" 
+                    disabled={isSubmitting || !!success}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing Assessment...
+                      </>
+                    ) : (
+                      <>
+                        Submit for Assessment
+                        <Upload className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Results Link */}
+          {submissionId && (
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="pt-6">
+                <div className="text-center space-y-4">
+                  <div className="text-green-800">
+                    <CheckCircle className="h-8 w-8 mx-auto mb-2" />
+                    <h3 className="font-semibold">Assessment Complete!</h3>
+                  </div>
+                  <Link href={`/results/${submissionId}`}>
+                    <Button className="bg-green-600 hover:bg-green-700">
+                      View Your Results
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -439,10 +481,10 @@ function SubmitPageContent() {
 export default function SubmitPage() {
   return (
     <Suspense fallback={
-      <div className="container mx-auto py-8 max-w-3xl">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">Loading...</h1>
-          <p className="text-muted-foreground">Preparing submission form...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <p>Loading submission form...</p>
         </div>
       </div>
     }>

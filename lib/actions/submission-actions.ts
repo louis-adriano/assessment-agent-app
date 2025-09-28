@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { processAnonymousAssessment } from '@/lib/services/assessment-service'
 import { githubService } from '@/lib/services/github-service'
+import { getCourseByName } from './lookup-actions'
 // import { SubmissionType, SubmissionStatus } from '@prisma/client'
 
 // Enhanced validation schema with GitHub URL support
@@ -206,12 +207,19 @@ export async function submitAssessment(
         console.log('✅ Regular assessment completed');
       }
 
+      // Final sanitization pass before database storage
+      const sanitizedAssessmentResult = JSON.parse(
+        JSON.stringify(assessmentResult).replace(/[\u0000-\u001F\u007F]/g, '')
+      );
+
+      console.log('🛡️ Final assessment result sanitized');
+
       // Update submission with assessment results
       await prisma.submission.update({
         where: { id: submission.id },
         data: {
           status: 'COMPLETED',
-          assessmentResult: assessmentResult as any,
+          assessmentResult: sanitizedAssessmentResult as any,
           processedAt: new Date(),
         },
       });
@@ -391,10 +399,36 @@ export async function submitAnonymousAssessment(formData: FormData): Promise<Act
   const assessmentNumber = parseInt(formData.get('assessmentNumber') as string);
   const submissionContent = formData.get('submissionContent') as string;
 
+  console.log('📝 submitAnonymousAssessment called with:', { courseName, assessmentNumber, contentLength: submissionContent?.length });
+
+  // First get the question to determine the correct submission type
+  const courseResult = await getCourseByName(courseName);
+  console.log('📊 Course lookup result:', { success: courseResult.success, hasData: !!courseResult.data, error: courseResult.error });
+
+  if (!courseResult.success || !courseResult.data) {
+    return { success: false, error: courseResult.error || `Course "${courseName}" not found` };
+  }
+
+  if (!courseResult.data.questions || !Array.isArray(courseResult.data.questions)) {
+    console.error('❌ No questions found in course data:', courseResult.data);
+    return { success: false, error: `No questions found in course "${courseName}"` };
+  }
+
+  const question = courseResult.data.questions.find(
+    (q: any) => q.questionNumber === assessmentNumber
+  );
+
+  if (!question) {
+    console.error('❌ Question not found:', { assessmentNumber, availableQuestions: courseResult.data.questions.map((q: any) => q.questionNumber) });
+    return { success: false, error: `Assessment #${assessmentNumber} not found` };
+  }
+
+  console.log('✅ Found question:', { id: question.id, submissionType: question.submissionType });
+
   return await submitAssessment(
     courseName,
     assessmentNumber,
-    'TEXT', // Default to text for form submissions
+    question.submissionType, // Use the actual submission type from the question
     submissionContent
   );
 }

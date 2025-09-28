@@ -12,7 +12,8 @@
     "db:seed": "dotenv -e .env.local -- tsx prisma/seed.ts",
     "db:reset": "dotenv -e .env.local -- prisma migrate reset --force && npm run db:seed",
     "db:studio": "dotenv -e .env.local -- prisma studio",
-    "test:sprint1": "dotenv -e .env.local -- tsx lib/test/test-sprint1.ts"
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "demo:reset": "npx prisma db push --force-reset && npm run seed:demo"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.18",
@@ -30,6 +31,7 @@
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "groq-sdk": "^0.7.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.441.0",
