@@ -1,5 +1,7 @@
-// app/admin/courses/[id]/assessments/new/page.tsx
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { getCourse } from '@/lib/actions/course-actions'
 import { createQuestion } from '@/lib/actions/assessment.actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,8 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import RubricManager from '@/components/admin/RubricManager'
 import Link from 'next/link'
-import { ArrowLeft, FileText, GitBranch, Globe, Image, FileIcon } from 'lucide-react'
+import { ArrowLeft, FileText, GitBranch, Globe, Image, FileIcon, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface NewAssessmentPageProps {
   params: Promise<{
@@ -16,39 +20,95 @@ interface NewAssessmentPageProps {
   }>
 }
 
-async function handleCreateAssessment(formData: FormData) {
-  'use server'
+export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
+  const router = useRouter()
+  const [courseId, setCourseId] = useState<string>('')
+  const [course, setCourse] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const courseId = formData.get('courseId') as string
+  // Form state
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    submissionType: '',
+    assessmentPrompt: '',
+    guidance: ''
+  })
 
-  // Convert FormData to expected object format
-  const data = {
-    courseId,
-    questionNumber: 1, // Auto-increment this in the actual implementation
-    title: formData.get('title') as string,
-    description: formData.get('description') as string,
-    submissionType: formData.get('submissionType') as any,
-    assessmentPrompt: formData.get('assessmentPrompt') as string || '',
-    criteria: formData.getAll('criteria').filter(c => c !== '') as string[],
-    redFlags: formData.getAll('redFlags').filter(r => r !== '') as string[],
-    conditionalChecks: formData.getAll('conditionalChecks').filter(c => c !== '') as string[],
-    guidance: formData.get('guidance') as string || ''
+  // Rubric state
+  const [formCriteria, setFormCriteria] = useState<string[]>([])
+  const [formRedFlags, setFormRedFlags] = useState<string[]>([])
+  const [formConditionalChecks, setFormConditionalChecks] = useState<string[]>([])
+
+  useEffect(() => {
+    async function loadCourse() {
+      try {
+        const { id } = await params
+        setCourseId(id)
+
+        const courseResult = await getCourse(id)
+        if (courseResult.success) {
+          setCourse(courseResult.data)
+        } else {
+          toast.error(courseResult.error || 'Failed to load course')
+        }
+      } catch (error) {
+        toast.error('Failed to load course data')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadCourse()
+  }, [params])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    try {
+      // Validate required fields
+      if (!formData.title.trim() || !formData.description.trim() || !formData.submissionType) {
+        toast.error('Please fill in all required fields')
+        setIsSubmitting(false)
+        return
+      }
+
+      const result = await createQuestion({
+        courseId,
+        title: formData.title,
+        description: formData.description,
+        submissionType: formData.submissionType as any,
+        assessmentPrompt: formData.assessmentPrompt || undefined,
+        criteria: formCriteria,
+        redFlags: formRedFlags,
+        conditionalChecks: formConditionalChecks,
+        guidance: formData.guidance || undefined
+      })
+
+      if (result.success) {
+        toast.success('Assessment created successfully')
+        router.push(`/admin/courses/${courseId}`)
+      } else {
+        toast.error(result.error || 'Failed to create assessment')
+      }
+    } catch (error) {
+      toast.error('Failed to create assessment')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const result = await createQuestion(data)
-
-  if (result.success) {
-    redirect(`/admin/courses/${courseId}`)
-  } else {
-    throw new Error(result.error || 'Failed to create assessment')
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
-}
 
-export default async function NewAssessmentPage({ params }: NewAssessmentPageProps) {
-  const { id } = await params
-  const courseResult = await getCourse(id)
-
-  if (!courseResult.success) {
+  if (!course) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -62,14 +122,12 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
         </div>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-red-600">Error: {courseResult.error}</p>
+            <p className="text-red-600">Error loading course data</p>
           </CardContent>
         </Card>
       </div>
     )
   }
-
-  const course = courseResult.data
 
   return (
     <div className="space-y-6">
@@ -89,7 +147,7 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        
+
         {/* Assessment Form */}
         <div className="lg:col-span-2">
           <Card>
@@ -103,9 +161,8 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form action={handleCreateAssessment} className="space-y-6">
-                <input type="hidden" name="courseId" value={course.id} />
-                
+              <form onSubmit={handleSubmit} className="space-y-6">
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="title" className="text-base font-medium">
@@ -113,7 +170,8 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
                     </Label>
                     <Input
                       id="title"
-                      name="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                       placeholder="e.g., AI Tools Comparison Essay"
                       required
                       className="text-base"
@@ -126,7 +184,8 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
                     </Label>
                     <select
                       id="submissionType"
-                      name="submissionType"
+                      value={formData.submissionType}
+                      onChange={(e) => setFormData(prev => ({ ...prev, submissionType: e.target.value }))}
                       required
                       className="w-full px-3 py-2 border border-input rounded-md text-base"
                     >
@@ -146,7 +205,8 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
                   </Label>
                   <Textarea
                     id="description"
-                    name="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     rows={4}
                     placeholder="Describe what students need to do for this assessment..."
                     required
@@ -163,7 +223,8 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
                   </Label>
                   <Textarea
                     id="assessmentPrompt"
-                    name="assessmentPrompt"
+                    value={formData.assessmentPrompt}
+                    onChange={(e) => setFormData(prev => ({ ...prev, assessmentPrompt: e.target.value }))}
                     rows={3}
                     placeholder="Custom instructions for the AI assessor..."
                     className="text-base"
@@ -179,7 +240,8 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
                   </Label>
                   <Textarea
                     id="guidance"
-                    name="guidance"
+                    value={formData.guidance}
+                    onChange={(e) => setFormData(prev => ({ ...prev, guidance: e.target.value }))}
                     rows={3}
                     placeholder="Additional tips and guidance for students..."
                     className="text-base"
@@ -189,94 +251,29 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
                   </p>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label className="text-base font-medium">
-                      Assessment Criteria
-                    </Label>
-                    <div className="space-y-2">
-                      <Input
-                        name="criteria"
-                        placeholder="Must include comparison of all three tools"
-                        className="text-sm"
-                      />
-                      <Input
-                        name="criteria"
-                        placeholder="Discusses pricing models and costs"
-                        className="text-sm"
-                      />
-                      <Input
-                        name="criteria"
-                        placeholder="Explains practical use cases"
-                        className="text-sm"
-                      />
-                      <Input
-                        name="criteria"
-                        placeholder="Uses proper technical terminology"
-                        className="text-sm"
-                      />
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Define what students must include to receive full marks.
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-base font-medium">
-                      Red Flags (Automatic Deductions)
-                    </Label>
-                    <div className="space-y-2">
-                      <Input
-                        name="redFlags"
-                        placeholder="Missing required comparison elements"
-                        className="text-sm"
-                      />
-                      <Input
-                        name="redFlags"
-                        placeholder="No mention of costs or pricing"
-                        className="text-sm"
-                      />
-                      <Input
-                        name="redFlags"
-                        placeholder="Unclear or incorrect explanations"
-                        className="text-sm"
-                      />
-                      <Input
-                        name="redFlags"
-                        placeholder="No practical examples provided"
-                        className="text-sm"
-                      />
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Issues that will result in lower grades.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-base font-medium">
-                    Conditional Checks
-                  </Label>
-                  <div className="space-y-2">
-                    <Input
-                      name="conditionalChecks"
-                      placeholder="If examples are detailed, bonus points"
-                      className="text-sm"
-                    />
-                    <Input
-                      name="conditionalChecks"
-                      placeholder="If MAS implementation explained, bonus points"
-                      className="text-sm"
-                    />
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Conditional logic for bonus points or additional deductions.
-                  </p>
+                {/* Enhanced Rubric Manager Component */}
+                <div className="border-t pt-6">
+                  <RubricManager
+                    criteria={formCriteria}
+                    redFlags={formRedFlags}
+                    conditionalChecks={formConditionalChecks}
+                    onCriteriaChange={setFormCriteria}
+                    onRedFlagsChange={setFormRedFlags}
+                    onConditionalChecksChange={setFormConditionalChecks}
+                    submissionType={formData.submissionType}
+                  />
                 </div>
 
                 <div className="flex gap-3 pt-6">
-                  <Button type="submit" className="flex-1">
-                    Create Assessment
+                  <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating Assessment...
+                      </>
+                    ) : (
+                      'Create Assessment'
+                    )}
                   </Button>
                   <Button type="button" variant="outline" className="flex-1" asChild>
                     <Link href={`/admin/courses/${course.id}`}>Cancel</Link>
@@ -290,7 +287,7 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
         {/* Sidebar Guide */}
         <div className="lg:col-span-1">
           <div className="sticky top-8 space-y-6">
-            
+
             {/* Submission Types Guide */}
             <Card>
               <CardHeader>
@@ -305,7 +302,7 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
                       <p className="text-xs text-gray-600">Students write directly in a text field</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-3 items-start">
                     <FileIcon className="h-4 w-4 text-purple-600 mt-1" />
                     <div>
@@ -313,7 +310,7 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
                       <p className="text-xs text-gray-600">PDF, DOCX, or pasted content</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-3 items-start">
                     <GitBranch className="h-4 w-4 text-gray-600 mt-1" />
                     <div>
@@ -321,7 +318,7 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
                       <p className="text-xs text-gray-600">Code projects and repositories</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-3 items-start">
                     <Globe className="h-4 w-4 text-green-600 mt-1" />
                     <div>
@@ -329,7 +326,7 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
                       <p className="text-xs text-gray-600">Live websites and web apps</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-3 items-start">
                     <Image className="h-4 w-4 text-orange-600 mt-1" />
                     <div>
@@ -353,13 +350,13 @@ export default async function NewAssessmentPage({ params }: NewAssessmentPagePro
                       <strong>Clear Instructions:</strong> Be specific about what you want students to submit.
                     </p>
                   </div>
-                  
+
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                     <p className="text-sm text-green-800">
                       <strong>Assessment Criteria:</strong> Define 4-6 clear criteria that students must meet.
                     </p>
                   </div>
-                  
+
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p className="text-sm text-amber-800">
                       <strong>Base Examples:</strong> Create reference answers after creating the assessment.

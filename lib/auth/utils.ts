@@ -1,11 +1,51 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "./config"
-import { UserRole } from "@prisma/client"
+// lib/auth/utils.ts - Better Auth utilities
+import { headers } from "next/headers"
 import { redirect } from "next/navigation"
+import { auth } from "./config"
+import { UserRole } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 
 export async function getCurrentUser() {
-  const session = await getServerSession(authOptions)
-  return session?.user
+  try {
+    const headersList = await headers()
+    const session = await auth.api.getSession({
+      headers: headersList,
+    })
+
+
+    if (!session?.user) {
+      return null
+    }
+
+    // Fetch full user data from database to get role
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        image: true,
+        emailVerified: true,
+      }
+    })
+
+    if (!user) {
+      return null
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      image: user.image,
+      emailVerified: user.emailVerified,
+    }
+  } catch (error) {
+    console.error("Error getting current user:", error)
+    return null
+  }
 }
 
 export async function requireAuth() {
@@ -36,4 +76,18 @@ export function canManageCourse(userRole: UserRole, courseCreatorId: string, use
   if (userRole === UserRole.SUPER_ADMIN) return true
   if (userRole === UserRole.COURSE_ADMIN && courseCreatorId === userId) return true
   return false
+}
+
+// Client-side session hook
+export async function getSession() {
+  try {
+    const headersList = await headers()
+    const session = await auth.api.getSession({
+      headers: headersList,
+    })
+    return session
+  } catch (error) {
+    console.error("Error getting session:", error)
+    return null
+  }
 }

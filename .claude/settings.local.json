@@ -7,7 +7,9 @@
       "mcp__ide__getDiagnostics",
       "Bash(npm run dev:*)",
       "Bash(npm run:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(curl -X POST http://localhost:3005/api/auth/sign-in/email -H \"Content-Type: application/json\" -d \"{\"\"email\"\":\"\"superadmin@example.com\"\",\"\"password\"\":\"\"superadmin123\"\"}\")"
     ],
     "deny": [],
     "ask": []

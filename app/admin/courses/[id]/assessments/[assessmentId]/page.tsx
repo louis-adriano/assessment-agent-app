@@ -325,60 +325,90 @@ export default async function AssessmentDetailPage({ params }: AssessmentPagePro
             <div>
               <CardTitle className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5" />
-                Base Examples ({assessment._count.baseExamples})
+                Perfectly Graded Examples ({assessment._count.baseExamples})
               </CardTitle>
               <CardDescription>
-                Perfect answer examples for consistent assessment
+                Reference submissions that guide AI assessment for consistent grading
               </CardDescription>
             </div>
-            <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/base-examples/new`}>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Example
-              </Button>
-            </Link>
+            <div className="flex gap-2">
+              <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/examples`}>
+                <Button variant="outline" size="sm">
+                  <Eye className="h-4 w-4 mr-2" />
+                  Manage Examples
+                </Button>
+              </Link>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           {assessment.baseExamples.length === 0 ? (
             <div className="text-center py-8">
-              <CheckCircle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <CheckCircle className="h-16 w-16 text-amber-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No base examples yet</h3>
-              <p className="text-gray-600 mb-4">Add perfect answer examples to improve assessment consistency</p>
-              <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/base-examples/new`}>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create First Example
-                </Button>
-              </Link>
+              <p className="text-gray-600 mb-4">
+                Base examples are crucial for consistent AI grading. Add perfect reference submissions
+                to help the AI understand what excellent work looks like.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/examples`}>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Your First Example
+                  </Button>
+                </Link>
+              </div>
             </div>
           ) : (
-            <div className="grid gap-4">
-              {assessment.baseExamples.map((example) => (
-                <div key={example.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-medium">{example.title}</h4>
-                    <div className="text-xs text-gray-500">
-                      {new Date(example.createdAt).toLocaleDateString()}
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                {assessment.baseExamples.slice(0, 4).map((example) => (
+                  <div key={example.id} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-medium line-clamp-1">{example.title}</h4>
+                      <div className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                        {new Date(example.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">{example.content}</p>
+                    <div className="flex justify-between items-center">
+                      <Badge variant="secondary" className="text-xs">
+                        {example.content.length > 100 ? `${example.content.length} chars` : 'Short example'}
+                      </Badge>
+                      <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/examples`}>
+                        <Button variant="ghost" size="sm" className="text-xs">
+                          View →
+                        </Button>
+                      </Link>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600 line-clamp-3 mb-3">{example.content}</p>
-                  <div className="flex gap-2">
-                    <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/base-examples/${example.id}`}>
-                      <Button variant="outline" size="sm">
-                        <Eye className="h-3 w-3 mr-1" />
-                        View
-                      </Button>
-                    </Link>
-                    <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/base-examples/${example.id}/edit`}>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
-                      </Button>
-                    </Link>
-                  </div>
+                ))}
+              </div>
+
+              {assessment.baseExamples.length > 4 && (
+                <div className="text-center pt-4 border-t">
+                  <p className="text-sm text-gray-600 mb-3">
+                    And {assessment.baseExamples.length - 4} more examples...
+                  </p>
+                  <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/examples`}>
+                    <Button variant="outline">
+                      <Eye className="h-4 w-4 mr-2" />
+                      View All {assessment.baseExamples.length} Examples
+                    </Button>
+                  </Link>
                 </div>
-              ))}
+              )}
+
+              {assessment.baseExamples.length <= 4 && (
+                <div className="text-center pt-4 border-t">
+                  <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/examples`}>
+                    <Button variant="outline">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Manage All Examples
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

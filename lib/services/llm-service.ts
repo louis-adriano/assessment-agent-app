@@ -83,7 +83,7 @@ export function selectLLMModel(submissionType: SubmissionType, contentLength: nu
   return LLM_MODELS.LLAMA_8B
 }
 
-// Build assessment prompt with base example comparison
+// Enhanced assessment prompt builder with better comparison logic
 export function buildAssessmentPrompt(request: AssessmentRequest): string {
   const {
     submissionContent,
@@ -98,6 +98,18 @@ export function buildAssessmentPrompt(request: AssessmentRequest): string {
     baseExampleMetadata
   } = request
 
+  // Enhanced context understanding based on submission type
+  const getSubmissionTypeContext = (type: SubmissionType) => {
+    const contexts = {
+      TEXT: "This is a text-based response. Focus on content quality, structure, clarity, and completeness.",
+      DOCUMENT: "This is a document submission. Evaluate formatting, organization, completeness, and professional presentation.",
+      GITHUB_REPO: "This is a GitHub repository. Assess code quality, documentation, project structure, and functionality.",
+      WEBSITE: "This is a website URL. Evaluate functionality, design, user experience, and technical implementation.",
+      SCREENSHOT: "This is a visual submission. Assess clarity, completeness, and whether it demonstrates the required elements."
+    }
+    return contexts[type] || contexts.TEXT
+  }
+
   let prompt = `You are an expert educational assessor. Please evaluate the following student submission.
 
 **ASSESSMENT CONTEXT:**
@@ -109,7 +121,7 @@ Submission Type: ${submissionType}
 ${submissionContent}
 `
 
-  // Add base example for comparison if available
+  // Enhanced base example comparison with detailed analysis
   if (baseExampleContent) {
     prompt += `
 
@@ -117,39 +129,79 @@ ${submissionContent}
 ${baseExampleContent}
 `
     if (baseExampleMetadata) {
+      const formattedMetadata = Object.entries(baseExampleMetadata)
+        .map(([key, value]) => `- ${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`)
+        .join('\n')
+
       prompt += `
-Base Example Metadata: ${JSON.stringify(baseExampleMetadata, null, 2)}
+
+**Why This Example is Perfect (Metadata Analysis):**
+${formattedMetadata}
 `
     }
+
     prompt += `
-**IMPORTANT:** Compare the student's submission against this perfect answer. Identify similarities, differences, and areas where the student's work deviates from the ideal response.
+
+**DETAILED COMPARISON ANALYSIS REQUIRED:**
+1. **Content Quality**: How does the student's submission compare to the reference in terms of depth, accuracy, and completeness?
+2. **Structure & Organization**: Does the student follow a similar logical flow and structure as the perfect example?
+3. **Technical Accuracy**: Are the concepts, terminology, and facts presented correctly compared to the reference?
+4. **Completeness**: Does the student cover all the key points addressed in the perfect example?
+5. **Innovation & Insight**: Does the student demonstrate original thinking while maintaining the quality standards of the reference?
+
+**COMPARISON SCORING:**
+- If the submission closely matches the perfect example quality: Lean towards "Excellent" or "Good"
+- If it has similar structure but lacks depth compared to the example: "Can Improve"
+- If it significantly deviates or fails to meet the example's standards: "Needs Improvement"
+
+**IMPORTANT:** Use the base example as your quality benchmark. The student doesn't need to be identical to the example, but should demonstrate similar levels of understanding, completeness, and quality.
 `
   }
 
-  // Add assessment criteria
+  // Enhanced criteria evaluation
   if (criteria.length > 0) {
     prompt += `
 
-**ASSESSMENT CRITERIA (Must-Have Elements):**
+**ASSESSMENT CRITERIA (Must-Have Elements for Full Marks):**
 ${criteria.map((criterion, i) => `${i + 1}. ${criterion}`).join('\n')}
+
+**CRITERIA EVALUATION INSTRUCTIONS:**
+- For each criterion, determine if it's "Met", "Partially Met", or "Not Met"
+- Only include fully met criteria in the "criteria_met" array
+- A submission should receive "Excellent" only if it meets ALL or nearly all criteria
+- "Good" should be given if it meets most criteria (70%+)
+- "Can Improve" for meeting some criteria (40-69%)
+- "Needs Improvement" for meeting few criteria (<40%)
 `
   }
 
-  // Add red flags
+  // Enhanced red flags evaluation
   if (redFlags.length > 0) {
     prompt += `
 
-**RED FLAGS (Automatic Point Deductions):**
-${redFlags.map((flag, i) => `- ${flag}`).join('\n')}
+**RED FLAGS (Critical Issues - Automatic Grade Reduction):**
+${redFlags.map((flag, i) => `${i + 1}. ${flag}`).join('\n')}
+
+**RED FLAG IMPACT:**
+- ANY red flag present should prevent "Excellent" rating
+- Multiple red flags should result in "Needs Improvement" regardless of other factors
+- Consider the severity and frequency of red flag issues
+- Be specific about which red flags are present in your feedback
 `
   }
 
-  // Add conditional checks
+  // Enhanced conditional checks for bonus recognition
   if (conditionalChecks.length > 0) {
     prompt += `
 
-**CONDITIONAL CHECKS:**
-${conditionalChecks.map((check, i) => `- ${check}`).join('\n')}
+**BONUS CRITERIA (Conditional Excellence Indicators):**
+${conditionalChecks.map((check, i) => `${i + 1}. ${check}`).join('\n')}
+
+**BONUS EVALUATION:**
+- These can elevate a "Good" submission to "Excellent"
+- Meeting bonus criteria shows exceptional understanding or effort
+- Consider these as opportunities for positive recognition
+- Include bonus achievements in your feedback to encourage continued excellence
 `
   }
 

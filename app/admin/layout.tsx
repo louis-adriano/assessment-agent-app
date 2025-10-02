@@ -1,45 +1,14 @@
 import { redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/config'
-import { prisma } from '@/lib/prisma'
-import { UserRole } from '@prisma/client'
+import { getCurrentUser, requireAdmin } from '@/lib/auth/utils'
 import AdminSidebar from '@/components/admin/AdminSidebar'
-
-async function getAuthenticatedUser() {
-  const session = await getServerSession(authOptions)
-  
-  if (!session?.user?.email) {
-    redirect('/auth/signin')
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true
-    }
-  })
-
-  if (!user) {
-    redirect('/auth/signin')
-  }
-
-  // Only admins can access admin area
-  if (user.role !== UserRole.SUPER_ADMIN && user.role !== UserRole.COURSE_ADMIN) {
-    redirect('/unauthorized')
-  }
-
-  return user
-}
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const user = await getAuthenticatedUser()
+  // Require admin access (SUPER_ADMIN or COURSE_ADMIN)
+  const user = await requireAdmin()
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
