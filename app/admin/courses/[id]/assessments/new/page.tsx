@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import RubricManager from '@/components/admin/RubricManager'
 import Link from 'next/link'
-import { ArrowLeft, FileText, GitBranch, Globe, Image, FileIcon, Loader2 } from 'lucide-react'
+import { ArrowLeft, FileText, GitBranch, Globe, Image, FileIcon, Loader2, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface NewAssessmentPageProps {
@@ -88,8 +88,9 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
       })
 
       if (result.success) {
-        toast.success('Assessment created successfully')
-        router.push(`/admin/courses/${courseId}`)
+        toast.success('Assessment created! Now add base examples for AI grading.')
+        // Redirect to examples page to add base examples
+        router.push(`/admin/courses/${courseId}/assessments/${result.data.id}/examples`)
       } else {
         toast.error(result.error || 'Failed to create assessment')
       }
@@ -272,7 +273,10 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
                         Creating Assessment...
                       </>
                     ) : (
-                      'Create Assessment'
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Create & Add Examples
+                      </>
                     )}
                   </Button>
                   <Button type="button" variant="outline" className="flex-1" asChild>
@@ -287,6 +291,40 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
         {/* Sidebar Guide */}
         <div className="lg:col-span-1">
           <div className="sticky top-8 space-y-6">
+
+            {/* Next Steps */}
+            <Card className="border-2 border-blue-200 bg-blue-50/50">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-blue-600" />
+                  What's Next?
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex-shrink-0">
+                      1
+                    </div>
+                    <p className="text-gray-700">Create the assessment with details and criteria</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex-shrink-0">
+                      2
+                    </div>
+                    <p className="text-gray-700">
+                      <strong>Add base examples</strong> - Upload reference submissions that show perfect work
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-400 text-white text-xs font-bold flex-shrink-0">
+                      3
+                    </div>
+                    <p className="text-gray-600">AI will use your examples to grade student submissions</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Submission Types Guide */}
             <Card>
@@ -359,7 +397,7 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
 
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p className="text-sm text-amber-800">
-                      <strong>Base Examples:</strong> Create reference answers after creating the assessment.
+                      <strong>Base Examples:</strong> Upload reference answers that demonstrate perfect work. The AI will use these to calibrate grading.
                     </p>
                   </div>
                 </div>

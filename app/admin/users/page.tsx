@@ -15,6 +15,9 @@ import {
   Edit,
   Trash2
 } from 'lucide-react'
+import EditUserDialog from '@/components/admin/EditUserDialog'
+import DeleteUserButton from '@/components/admin/DeleteUserButton'
+import AddUserDialog from '@/components/admin/AddUserDialog'
 
 async function getUsers() {
   const users = await prisma.user.findMany({
@@ -80,10 +83,12 @@ export default async function UsersPage() {
             Manage system users and their roles
           </p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add User
-        </Button>
+        <AddUserDialog>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Add User
+          </Button>
+        </AddUserDialog>
       </div>
 
       {/* User Statistics */}
@@ -190,15 +195,14 @@ export default async function UsersPage() {
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm">
-                        <Edit className="mr-1 h-3 w-3" />
-                        Edit
-                      </Button>
-                      {user.role !== 'SUPER_ADMIN' && (
+                      <EditUserDialog user={user}>
                         <Button variant="outline" size="sm">
-                          <Trash2 className="mr-1 h-3 w-3" />
-                          Delete
+                          <Edit className="mr-1 h-3 w-3" />
+                          Edit Role
                         </Button>
+                      </EditUserDialog>
+                      {user.role !== 'SUPER_ADMIN' && (
+                        <DeleteUserButton userId={user.id} userName={user.name || user.email} />
                       )}
                     </div>
                   </div>

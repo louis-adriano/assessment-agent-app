@@ -181,7 +181,6 @@ export default function SignIn() {
             </div>
 
 
-
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 Need an account?{' '}
@@ -196,15 +195,6 @@ export default function SignIn() {
                 </Link>
               </p>
             </div>
-
-              <div className="mt-6 pt-6 border-t">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Demo Accounts:</h4>
-                <div className="text-xs text-gray-600 space-y-1">
-                  <p><strong>Super Admin:</strong> superadmin@example.com / superadmin123</p>
-                  <p><strong>Course Admin:</strong> courseadmin@example.com / courseadmin123</p>
-                  <p><strong>Student:</strong> student@example.com / student123</p>
-                </div>
-              </div>
           </div>
         </CardContent>
         <CardFooter>

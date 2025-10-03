@@ -32,6 +32,15 @@ export const auth = betterAuth({
             }
         }
     },
+    trustedOrigins: [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "https://assessment-agent-app.vercel.app",
+        process.env.NEXT_PUBLIC_APP_URL,
+        process.env.BETTER_AUTH_URL,
+        process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    ].filter(Boolean) as string[],
     secret: process.env.BETTER_AUTH_SECRET || process.env.NEXTAUTH_SECRET || "dev-secret-key-change-in-production",
-    baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    baseURL: process.env.BETTER_AUTH_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
 });
