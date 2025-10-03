@@ -9,7 +9,9 @@
       "Bash(npm run:*)",
       "Bash(node:*)",
       "Bash(npm uninstall:*)",
-      "Bash(curl -X POST http://localhost:3005/api/auth/sign-in/email -H \"Content-Type: application/json\" -d \"{\"\"email\"\":\"\"superadmin@example.com\"\",\"\"password\"\":\"\"superadmin123\"\"}\")"
+      "Bash(curl -X POST http://localhost:3005/api/auth/sign-in/email -H \"Content-Type: application/json\" -d \"{\"\"email\"\":\"\"superadmin@example.com\"\",\"\"password\"\":\"\"superadmin123\"\"}\")",
+      "Bash(curl -X POST http://localhost:3002/api/test/github-analysis -H \"Content-Type: application/json\" -d \"{\"\"repoUrl\"\":\"\"https://github.com/vercel/next-learn\"\"}\")",
+      "Bash(curl -X POST http://localhost:3002/api/test/github-analysis -H \"Content-Type: application/json\" -d \"{\"\"repoUrl\"\":\"\"https://github.com/facebook/react\"\"}\")"
     ],
     "deny": [],
     "ask": []

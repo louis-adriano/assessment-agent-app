@@ -269,50 +269,73 @@ export async function submitAssessment(
 }
 
 /**
- * Specialized GitHub repository assessment
+ * Specialized GitHub repository assessment with comprehensive code analysis
  */
 async function assessGitHubRepository(repoUrl: string, question: any, submissionId: string) {
   console.log('🔍 Assessing GitHub repository:', repoUrl);
-  
+
   try {
-    // Get repository analysis from GitHub service
-    const repoAnalysis = await githubService.assessRepository(repoUrl);
-    console.log('📊 Repository analysis completed:', {
-      fileCount: repoAnalysis.repoInfo.fileCount,
-      hasReadme: repoAnalysis.codeQuality.hasReadme,
-      hasTests: repoAnalysis.codeQuality.hasTests,
-      mainLanguage: repoAnalysis.codeQuality.mainLanguage
+    // Parse GitHub URL
+    const parsed = githubService.parseGitHubUrl(repoUrl);
+    if (!parsed) {
+      throw new Error('Invalid GitHub URL');
+    }
+
+    // Fetch complete repository information
+    const repoInfo = await githubService.getRepositoryInfo(parsed.owner, parsed.repo);
+    console.log('📊 Repository fetched:', {
+      fileCount: repoInfo.fileCount,
+      filesAnalyzed: repoInfo.files.length,
+      hasReadme: !!repoInfo.readme,
+      hasTests: repoInfo.hasTests,
+      totalSize: repoInfo.totalSize
     });
+
+    // Extract keywords from question for adaptive file selection
+    const assignmentKeywords = [
+      ...question.title.toLowerCase().split(' '),
+      ...question.description.toLowerCase().split(' '),
+      ...(question.criteria || []).flatMap((c: string) => c.toLowerCase().split(' '))
+    ].filter(word => word.length > 3) // Filter out short words
+
+    // Generate comprehensive repository summary for LLM with adaptive file selection
+    const repoSummary = githubService.generateRepoSummary(repoInfo, assignmentKeywords);
 
     // Create enhanced prompt for GitHub assessment
     const githubPrompt = `
-GITHUB REPOSITORY ASSESSMENT
+You are assessing a GitHub repository submission for the following assignment:
 
-Repository URL: ${repoUrl}
-Owner/Repo: ${repoAnalysis.repoInfo.owner}/${repoAnalysis.repoInfo.repo}
+${question.title}
 
-CODE QUALITY ANALYSIS:
-- Main Language: ${repoAnalysis.codeQuality.mainLanguage}
-- File Count: ${repoAnalysis.repoInfo.fileCount}
-- Has README: ${repoAnalysis.codeQuality.hasReadme ? 'Yes' : 'No'}
-- Has Tests: ${repoAnalysis.codeQuality.hasTests ? 'Yes' : 'No'}
-- Has Documentation: ${repoAnalysis.codeQuality.hasDocumentation ? 'Yes' : 'No'}
-- Complexity: ${repoAnalysis.codeQuality.complexity}
+${question.description}
 
-REPOSITORY STRUCTURE:
-${repoAnalysis.repoInfo.structure}
+${question.criteria && question.criteria.length > 0 ? `
+GRADING CRITERIA:
+${question.criteria.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n')}
+` : ''}
 
-SAMPLE FILES:
-${repoAnalysis.repoInfo.files.slice(0, 3).map(file => 
-  `${file.path} (${file.type}):\n${file.content.slice(0, 300)}...\n`
-).join('\n')}
+${question.redFlags && question.redFlags.length > 0 ? `
+RED FLAGS TO CHECK:
+${question.redFlags.map((r: string, i: number) => `${i + 1}. ${r}`).join('\n')}
+` : ''}
 
-${repoAnalysis.repoInfo.readme ? `README CONTENT:\n${repoAnalysis.repoInfo.readme.slice(0, 500)}...` : 'No README found'}
+---
 
-QUESTION REQUIREMENTS:
-${question.description || 'Assess the code quality, structure, and documentation of this repository.'}
+STUDENT'S REPOSITORY SUBMISSION:
 
-Please assess this GitHub repository and provide structured feedback focusing on code quality, organization, and best practices.
+${repoSummary}
+
+---
+
+Please provide a comprehensive assessment of this GitHub repository focusing on:
+1. Code quality and adherence to best practices
+2. Project structure and organization
+3. Documentation (README, comments, API docs)
+4. Testing coverage and quality
+5. Whether it meets the assignment requirements
+6. Overall completeness and professionalism
+
+Provide specific examples from the code when pointing out strengths or areas for improvement.
     `;
 
     // Get AI assessment with GitHub-specific prompt
@@ -324,26 +347,42 @@ Please assess this GitHub repository and provide structured feedback focusing on
     });
 
     // Enhance feedback with GitHub-specific insights
+    const mainLanguage = Object.entries(repoInfo.languages).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Unknown'
     const enhancedFeedback = `${assessment.feedback}
 
-GitHub Analysis Summary:
-• Repository has ${repoAnalysis.repoInfo.fileCount} files in ${repoAnalysis.codeQuality.mainLanguage}
-• Code organization: ${repoAnalysis.structure.organized ? 'Well organized' : 'Could be improved'}
-• Documentation: ${repoAnalysis.codeQuality.hasReadme ? 'README present' : 'Missing README'}
-• Testing: ${repoAnalysis.codeQuality.hasTests ? 'Tests found' : 'No tests detected'}`;
+---
+
+**Repository Analysis Summary:**
+- **Repository:** ${parsed.owner}/${parsed.repo}
+- **Main Language:** ${mainLanguage}
+- **Files Analyzed:** ${repoInfo.files.length} (out of ${repoInfo.fileCount} total)
+- **README:** ${repoInfo.readme ? '✓ Present' : '✗ Missing'}
+- **Tests:** ${repoInfo.hasTests ? '✓ Found' : '✗ Not detected'}
+- **Documentation:** ${repoInfo.hasDocumentation ? '✓ Present' : '✗ Limited'}
+- **Repository Size:** ${(repoInfo.totalSize / 1024).toFixed(2)} KB`;
 
     return {
       ...assessment,
       feedback: enhancedFeedback,
       metadata: {
-        github: repoAnalysis,
+        github: {
+          owner: parsed.owner,
+          repo: parsed.repo,
+          fileCount: repoInfo.fileCount,
+          filesAnalyzed: repoInfo.files.length,
+          mainLanguage,
+          hasReadme: !!repoInfo.readme,
+          hasTests: repoInfo.hasTests,
+          hasDocumentation: repoInfo.hasDocumentation,
+          languages: repoInfo.languages
+        },
         repoUrl: repoUrl,
       }
     };
 
   } catch (error) {
     console.error('❌ GitHub assessment failed:', error);
-    
+
     // Return fallback assessment for GitHub errors
     return {
       remark: 'Needs Improvement',
