@@ -12,6 +12,18 @@ export const auth = betterAuth({
         enabled: true,
         requireEmailVerification: false,
     },
+    socialProviders: {
+        github: {
+            clientId: process.env.GITHUB_CLIENT_ID || "",
+            clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
+            enabled: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+        },
+        google: {
+            clientId: process.env.GOOGLE_CLIENT_ID || "",
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+            enabled: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+        },
+    },
     user: {
         additionalFields: {
             role: {
@@ -21,4 +33,5 @@ export const auth = betterAuth({
         }
     },
     secret: process.env.BETTER_AUTH_SECRET || process.env.NEXTAUTH_SECRET || "dev-secret-key-change-in-production",
+    baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
 });
