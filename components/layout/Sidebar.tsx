@@ -9,6 +9,14 @@ import { BookOpen, GraduationCap, LayoutDashboard, User, LogOut, Shield } from '
 import { useSession, signOut } from '@/lib/auth-client'
 import { Badge } from '@/components/ui/badge'
 
+interface UserWithRole {
+  id: string
+  email: string
+  name: string
+  image?: string | null
+  role?: string
+}
+
 export function Sidebar() {
   const pathname = usePathname()
   const { data: session, isPending } = useSession()
@@ -16,6 +24,8 @@ export function Sidebar() {
   const handleSignOut = async () => {
     await signOut()
   }
+
+  const user = session?.user as UserWithRole | undefined
 
   return (
     <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:fixed lg:inset-y-0 bg-gradient-to-b from-gray-900 to-gray-800 shadow-2xl">
@@ -53,7 +63,7 @@ export function Sidebar() {
             <BookOpen className="mr-3 h-5 w-5" />
             Courses
           </Link>
-          {session?.user?.role && (session.user.role === 'SUPER_ADMIN' || session.user.role === 'COURSE_ADMIN') && (
+          {user?.role && (user.role === 'SUPER_ADMIN' || user.role === 'COURSE_ADMIN') && (
             <Link
               href="/admin"
               className={`flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
@@ -90,10 +100,10 @@ export function Sidebar() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-gray-400">Welcome,</p>
-                      <p className="text-sm font-semibold text-white truncate">{session.user.name}</p>
-                      {session.user.role && (session.user.role === 'SUPER_ADMIN' || session.user.role === 'COURSE_ADMIN') && (
+                      <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
+                      {user?.role && (user.role === 'SUPER_ADMIN' || user.role === 'COURSE_ADMIN') && (
                         <Badge variant="secondary" className="mt-1 text-[10px] px-1.5 py-0 h-4 bg-teal-600 text-white border-0">
-                          {session.user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Course Admin'}
+                          {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Course Admin'}
                         </Badge>
                       )}
                     </div>
