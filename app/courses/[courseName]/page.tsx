@@ -4,6 +4,7 @@ import { findCourseByName, getCourseQuestions } from '@/lib/actions/lookup-actio
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Sidebar } from '@/components/layout/Sidebar'
 import { ArrowLeft, FileText, Play, Clock, CheckCircle, ArrowRight, BookOpen } from 'lucide-react'
 
 interface CourseDetailPageProps {
@@ -29,42 +30,45 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
   const course = courseResult.data
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/courses">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                All Courses
-              </Link>
-            </Button>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900">{course.name}</h1>
-              <p className="mt-1 text-gray-600">
-                {questions.length} questions • Self-paced learning • Instant feedback
-              </p>
-            </div>
-            <Button asChild>
-              <Link href={`/submit?courseName=${encodeURIComponent(courseName)}`}>
-                Start Assessment
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Sidebar />
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="flex-1 lg:pl-72">
+        {/* Header */}
+        <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-200">
+          <div className="px-6 py-6 md:px-12">
+            <div className="flex items-center gap-4">
+              <Button variant="outline" size="sm" className="rounded-xl" asChild>
+                <Link href="/courses">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  All Courses
+                </Link>
+              </Button>
+              <div className="flex-1">
+                <h1 className="text-3xl font-bold text-gray-900">{course.name}</h1>
+                <p className="mt-1 text-gray-600">
+                  {questions.length} questions • Self-paced learning • Instant feedback
+                </p>
+              </div>
+              <Button className="bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
+                <Link href={`/submit?courseName=${encodeURIComponent(courseName)}`}>
+                  Start Assessment
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <div className="px-6 py-8 md:px-12">
         <div className="grid gap-8 lg:grid-cols-3">
           
           {/* Course Information Sidebar */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-8">
+            <Card className="sticky top-24 rounded-2xl shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
+                  <BookOpen className="h-5 w-5 text-teal-600" />
                   Course Overview
                 </CardTitle>
               </CardHeader>
@@ -80,19 +84,19 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                   <h4 className="font-medium text-gray-900 mb-3">Course Features</h4>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <CheckCircle className="h-4 w-4 text-teal-600" />
                       <span>Instant AI feedback</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <CheckCircle className="h-4 w-4 text-teal-600" />
                       <span>Self-paced learning</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <CheckCircle className="h-4 w-4 text-teal-600" />
                       <span>No registration required</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <CheckCircle className="h-4 w-4 text-teal-600" />
                       <span>Multiple submission types</span>
                     </div>
                   </div>
@@ -101,19 +105,19 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">Quick Stats</h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="text-center p-3 bg-blue-50 rounded-lg">
-                      <div className="font-bold text-blue-600">{questions.length}</div>
+                    <div className="text-center p-3 bg-teal-50 rounded-xl">
+                      <div className="font-bold text-teal-600">{questions.length}</div>
                       <div className="text-gray-600">Questions</div>
                     </div>
-                    <div className="text-center p-3 bg-green-50 rounded-lg">
-                      <div className="font-bold text-green-600">∞</div>
+                    <div className="text-center p-3 bg-teal-50 rounded-xl">
+                      <div className="font-bold text-teal-600">∞</div>
                       <div className="text-gray-600">Attempts</div>
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-4">
-                  <Button className="w-full" asChild>
+                  <Button className="w-full bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
                     <Link href={`/submit?courseName=${encodeURIComponent(courseName)}`}>
                       <Play className="mr-2 h-4 w-4" />
                       Start First Assessment
@@ -136,14 +140,14 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
             </div>
 
             {questions.length === 0 ? (
-              <Card className="text-center py-12">
+              <Card className="text-center py-12 rounded-2xl shadow-md">
                 <CardContent>
                   <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                   <CardTitle className="mb-2">No Questions Available</CardTitle>
                   <CardDescription className="mb-6">
                     Questions for this course are being prepared. Please check back soon.
                   </CardDescription>
-                  <Button variant="outline" asChild>
+                  <Button variant="outline" className="rounded-xl" asChild>
                     <Link href="/courses">Browse Other Courses</Link>
                   </Button>
                 </CardContent>
@@ -151,16 +155,16 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
             ) : (
               <div className="space-y-4">
                 {questions.map((question: any) => (
-                  <Card key={question.id} className="hover:shadow-lg transition-all duration-200">
+                  <Card key={question.id} className="hover:shadow-xl transition-all duration-200 rounded-2xl shadow-md">
                     <CardHeader>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-semibold text-sm">
+                            <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-sm shadow-lg">
                               {question.questionNumber}
                             </div>
                             <CardTitle className="text-lg">{question.title}</CardTitle>
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200">
                               {question.submissionType.replace('_', ' ').toLowerCase()}
                             </Badge>
                           </div>
@@ -170,7 +174,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                         </div>
                       </div>
                     </CardHeader>
-                    
+
                     <CardContent>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4 text-sm text-gray-600">
@@ -189,14 +193,14 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                             </span>
                           </div>
                         </div>
-                        
+
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" asChild>
+                          <Button variant="outline" size="sm" className="rounded-xl" asChild>
                             <Link href={`/courses/${encodeURIComponent(courseName)}/${question.questionNumber}`}>
                               View Details
                             </Link>
                           </Button>
-                          <Button size="sm" asChild>
+                          <Button size="sm" className="bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
                             <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${question.questionNumber}`}>
                               <ArrowRight className="mr-2 h-4 w-4" />
                               Start
@@ -206,8 +210,8 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                       </div>
 
                       {question.guidance && (
-                        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                          <p className="text-sm text-amber-800">
+                        <div className="mt-4 p-3 bg-teal-50 border border-teal-200 rounded-xl">
+                          <p className="text-sm text-teal-800">
                             <strong>Guidance:</strong> {question.guidance}
                           </p>
                         </div>
@@ -218,32 +222,8 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
               </div>
             )}
 
-            {/* Course Completion CTA */}
-            {questions.length > 0 && (
-              <Card className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-                <CardContent className="text-center py-8">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    Ready to Test Your Knowledge?
-                  </h3>
-                  <p className="text-gray-600 mb-6">
-                    Start with any question and get instant AI-powered feedback to improve your understanding.
-                  </p>
-                  <div className="flex gap-4 justify-center">
-                    <Button size="lg" asChild>
-                      <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=1`}>
-                        Start Assessment 1
-                      </Link>
-                    </Button>
-                    <Button size="lg" variant="outline" asChild>
-                      <Link href={`/submit?courseName=${encodeURIComponent(courseName)}`}>
-                        Choose Assessment
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
+        </div>
         </div>
       </main>
     </div>

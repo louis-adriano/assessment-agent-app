@@ -86,25 +86,25 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Sidebar />
 
       {/* Main Content */}
       <main className="flex-1 lg:pl-72">
         {/* Header */}
-        <div className="bg-white border-b">
+        <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-200">
           <div className="px-6 py-8 md:px-12">
             <div className="max-w-7xl mx-auto">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-3xl font-bold mb-2">All Courses</h1>
-                  <p className="text-muted-foreground">
+                  <h1 className="text-3xl font-bold mb-2 text-gray-900">All Courses</h1>
+                  <p className="text-gray-600">
                     Browse and enroll in courses to start learning
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-[200px]">
+                    <SelectTrigger className="w-[200px] rounded-xl">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent>
@@ -128,7 +128,7 @@ export default function CoursesPage() {
                 <p className="text-muted-foreground">Loading courses...</p>
               </div>
             ) : sortedCourses.length === 0 ? (
-              <Card className="border-dashed">
+              <Card className="border-dashed rounded-2xl">
                 <CardContent className="pt-12 pb-12">
                   <div className="text-center space-y-4">
                     <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
@@ -136,7 +136,7 @@ export default function CoursesPage() {
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold mb-2">No Courses Available</h3>
-                      <p className="text-muted-foreground">
+                      <p className="text-gray-600">
                         Courses will appear here once they're created
                       </p>
                     </div>
@@ -146,10 +146,10 @@ export default function CoursesPage() {
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {sortedCourses.map((course: any) => (
-                  <Card key={course.id} className="hover:shadow-lg transition-shadow group">
+                  <Card key={course.id} className="hover:shadow-xl transition-shadow group rounded-2xl shadow-md border-l-4 border-l-teal-500">
                     <CardHeader className="pb-4">
                       <div className="flex items-start justify-between mb-3">
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" className="text-xs bg-teal-100 text-teal-700">
                           {course.questions.length} Assessment{course.questions.length !== 1 ? 's' : ''}
                         </Badge>
                       </div>
@@ -164,18 +164,18 @@ export default function CoursesPage() {
                       <div className="space-y-4">
                         {/* Assessments Preview */}
                         <div className="space-y-2">
-                          <p className="text-sm font-medium text-muted-foreground">Assessments:</p>
+                          <p className="text-sm font-medium text-gray-600">Assessments:</p>
                           <div className="space-y-2">
                             {course.questions.slice(0, 3).map((question: any) => (
                               <div key={question.id} className="flex items-center gap-2 text-sm">
-                                <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <div className="flex items-center gap-1.5 text-gray-600">
                                   {getSubmissionTypeIcon(question.submissionType)}
                                   <span className="truncate">{question.title}</span>
                                 </div>
                               </div>
                             ))}
                             {course.questions.length > 3 && (
-                              <p className="text-xs text-muted-foreground pl-6">
+                              <p className="text-xs text-gray-500 pl-6">
                                 +{course.questions.length - 3} more
                               </p>
                             )}
@@ -183,7 +183,7 @@ export default function CoursesPage() {
                         </div>
 
                         {/* Start Course Button */}
-                        <Button className="w-full group-hover:bg-teal-600" size="sm" asChild>
+                        <Button className="w-full bg-teal-600 hover:bg-teal-700 rounded-xl" size="sm" asChild>
                           <Link href={`/courses/${encodeURIComponent(course.name)}`}>
                             Start Course
                             <ArrowRight className="ml-2 h-4 w-4" />

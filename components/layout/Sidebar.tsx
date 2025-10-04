@@ -1,51 +1,42 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { BookOpen, GraduationCap, LayoutDashboard, User, LogOut } from 'lucide-react'
+import { BookOpen, GraduationCap, LayoutDashboard, User, LogOut, Shield } from 'lucide-react'
+import { useSession, signOut } from '@/lib/auth-client'
+import { Badge } from '@/components/ui/badge'
 
 export function Sidebar() {
   const pathname = usePathname()
-  const [session, setSession] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const { data: session, isPending } = useSession()
 
-  useEffect(() => {
-    fetchSession()
-  }, [])
-
-  const fetchSession = async () => {
-    try {
-      const response = await fetch('/api/auth/get-session')
-      if (response.ok) {
-        const data = await response.json()
-        setSession(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch session:', error)
-    } finally {
-      setLoading(false)
-    }
+  const handleSignOut = async () => {
+    await signOut()
   }
 
   return (
-    <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:fixed lg:inset-y-0 bg-white border-r">
+    <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:fixed lg:inset-y-0 bg-gradient-to-b from-gray-900 to-gray-800 shadow-2xl">
       <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-        <div className="flex items-center flex-shrink-0 px-6">
-          <GraduationCap className="h-8 w-8 text-teal-600" />
-          <span className="ml-2 text-xl font-bold">Assessment Agent</span>
+        <div className="flex items-center flex-shrink-0 px-6 pb-5 border-b border-gray-700">
+          <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
+            <GraduationCap className="h-6 w-6 text-white" />
+          </div>
+          <div className="ml-3">
+            <span className="text-xl font-bold text-white">Assessment</span>
+            <span className="text-sm text-gray-400 block">Portal</span>
+          </div>
         </div>
 
         <nav className="mt-8 flex-1 px-4 space-y-2">
           <Link
             href="/"
-            className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${
+            className={`flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
               pathname === '/'
-                ? 'bg-teal-500 text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-lg shadow-teal-500/30'
+                : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
             }`}
           >
             <LayoutDashboard className="mr-3 h-5 w-5" />
@@ -53,56 +44,77 @@ export function Sidebar() {
           </Link>
           <Link
             href="/courses"
-            className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${
+            className={`flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
               pathname === '/courses'
-                ? 'bg-teal-500 text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-lg shadow-teal-500/30'
+                : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
             }`}
           >
             <BookOpen className="mr-3 h-5 w-5" />
             Courses
           </Link>
+          {session?.user?.role && (session.user.role === 'SUPER_ADMIN' || session.user.role === 'COURSE_ADMIN') && (
+            <Link
+              href="/admin"
+              className={`flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
+                pathname.startsWith('/admin')
+                  ? 'bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-lg shadow-teal-500/30'
+                  : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+              }`}
+            >
+              <Shield className="mr-3 h-5 w-5" />
+              Admin
+            </Link>
+          )}
         </nav>
 
         {/* User Section */}
-        <div className="flex-shrink-0 px-4 pb-4">
-          {!loading && (
+        <div className="flex-shrink-0 px-4 pb-4 border-t border-gray-700 pt-4">
+          {!isPending && (
             <>
               {session?.user ? (
-                <Card className="border-0 bg-gray-50">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      {session.user.image ? (
-                        <Image
-                          src={session.user.image}
-                          alt={session.user.name || 'User'}
-                          width={40}
-                          height={40}
-                          className="rounded-full"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center">
-                          <User className="h-5 w-5 text-teal-600" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground">Welcome,</p>
-                        <p className="text-sm font-medium truncate">{session.user.name}</p>
+                <div className="p-4 bg-gray-800/50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    {session.user.image ? (
+                      <Image
+                        src={session.user.image}
+                        alt={session.user.name || 'User'}
+                        width={40}
+                        height={40}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg">
+                        <User className="h-5 w-5 text-white" />
                       </div>
-                      <Link href="/api/auth/sign-out">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <LogOut className="h-4 w-4" />
-                        </Button>
-                      </Link>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-400">Welcome,</p>
+                      <p className="text-sm font-semibold text-white truncate">{session.user.name}</p>
+                      {session.user.role && (session.user.role === 'SUPER_ADMIN' || session.user.role === 'COURSE_ADMIN') && (
+                        <Badge variant="secondary" className="mt-1 text-[10px] px-1.5 py-0 h-4 bg-teal-600 text-white border-0">
+                          {session.user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Course Admin'}
+                        </Badge>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-400 hover:bg-red-600/20" onClick={handleSignOut}>
+                      <LogOut className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               ) : (
-                <Button className="w-full" asChild>
-                  <Link href="/auth/signin">
-                    Sign In
-                  </Link>
-                </Button>
+                <div className="p-4 bg-gray-800/50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg">
+                      <User className="h-5 w-5 text-white" />
+                    </div>
+                    <Button variant="link" className="text-teal-400 hover:text-teal-300 p-0 h-auto font-medium" asChild>
+                      <Link href="/auth/signin">
+                        Sign In
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
               )}
             </>
           )}

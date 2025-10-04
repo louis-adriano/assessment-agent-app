@@ -13,7 +13,8 @@ import {
   BarChart3,
   Settings,
   Search,
-  LogOut
+  LogOut,
+  ArrowLeft
 } from 'lucide-react'
 
 const navigation = [
@@ -22,6 +23,10 @@ const navigation = [
   { name: 'Assessments', href: '/admin/assessments', icon: FileText },
   { name: 'Submissions', href: '/admin/submissions', icon: Users },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
+]
+
+const quickLinks = [
+  { name: 'Back to Home', href: '/', icon: ArrowLeft },
 ]
 
 const adminNavigation = [
@@ -85,6 +90,24 @@ export default function AdminSidebar({ user }: AdminSidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-8 overflow-y-auto">
+        <div>
+          <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            Quick Links
+          </h3>
+          <div className="space-y-1">
+            {quickLinks.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className="group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all text-gray-300 hover:bg-gray-700/50 hover:text-white"
+              >
+                <item.icon className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 group-hover:text-gray-300" />
+                {item.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+
         <div>
           <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
             Main Menu

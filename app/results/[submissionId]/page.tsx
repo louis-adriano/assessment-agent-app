@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Sidebar } from '@/components/layout/Sidebar'
 import {
   ArrowLeft,
   Calendar,
@@ -63,10 +64,10 @@ export default function ResultsPage({ params }: Props) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 items-center justify-center">
         <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-          <p>Loading assessment results...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-teal-600" />
+          <p className="text-gray-600">Loading assessment results...</p>
         </div>
       </div>
     )
@@ -74,20 +75,23 @@ export default function ResultsPage({ params }: Props) {
 
   if (error || !submission) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="text-6xl">🔍</div>
-          <h1 className="text-2xl font-bold">Submission Not Found</h1>
-          <p className="text-muted-foreground max-w-md">
-            {error || 'The assessment result you\'re looking for could not be found or may have expired.'}
-          </p>
-          <Link href="/">
-            <Button>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
-            </Button>
-          </Link>
-        </div>
+      <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <Sidebar />
+        <main className="flex-1 lg:pl-72 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="text-6xl">🔍</div>
+            <h1 className="text-2xl font-bold text-gray-900">Submission Not Found</h1>
+            <p className="text-gray-600 max-w-md">
+              {error || 'The assessment result you\'re looking for could not be found or may have expired.'}
+            </p>
+            <Link href="/">
+              <Button className="bg-teal-600 hover:bg-teal-700 rounded-xl">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Home
+              </Button>
+            </Link>
+          </div>
+        </main>
       </div>
     )
   }
@@ -159,46 +163,48 @@ export default function ResultsPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto py-12 max-w-4xl">
-        <div className="space-y-8">
-          {/* Navigation */}
-          <div className="flex items-center justify-between">
-            <Link href="/">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Home
-              </Button>
-            </Link>
-            
-            <div className="flex items-center gap-2">
-              <button
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                onClick={() => copyToClipboard(window.location.href)}
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                Copy Link
-              </button>
-              <button
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                onClick={shareResults}
-              >
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </button>
-            </div>
-          </div>
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Sidebar />
+      <main className="flex-1 lg:pl-72">
+        <div className="px-6 py-12 md:px-12">
+          <div className="max-w-4xl mx-auto space-y-8">
+            {/* Navigation */}
+            <div className="flex items-center justify-between">
+              <Link href="/">
+                <Button variant="outline" size="sm" className="rounded-xl">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Home
+                </Button>
+              </Link>
 
-          {/* Header */}
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold">Assessment Results</h1>
-            <p className="text-muted-foreground">
-              Detailed feedback and analysis for your submission
-            </p>
-          </div>
+              <div className="flex items-center gap-2">
+                <button
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50"
+                  onClick={() => copyToClipboard(window.location.href)}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Link
+                </button>
+                <button
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50"
+                  onClick={shareResults}
+                >
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share
+                </button>
+              </div>
+            </div>
+
+            {/* Header */}
+            <div className="text-center space-y-4">
+              <h1 className="text-4xl font-bold text-gray-900">Assessment Results</h1>
+              <p className="text-gray-600">
+                Detailed feedback and analysis for your submission
+              </p>
+            </div>
 
           {/* Assessment Score Card */}
-          <Card className="bg-gradient-to-r from-white to-blue-50 border-0 shadow-xl">
+          <Card className="bg-gradient-to-r from-white to-teal-50 border-0 shadow-xl rounded-2xl">
             <CardContent className="pt-8 pb-8">
               <div className="text-center space-y-6">
                 <div className="space-y-4">
@@ -212,12 +218,12 @@ export default function ResultsPage({ params }: Props) {
                   </div>
                   
                   <div className="space-y-2">
-                    <div className="text-5xl font-bold text-gray-700">
+                    <div className="text-5xl font-bold text-teal-600">
                       {getRemarkScore((submission.assessmentResult as any)?.remark || '')}%
                     </div>
                     <div className="w-64 mx-auto h-3 bg-gray-200 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-blue-600 transition-all duration-500"
+                        className="h-full bg-gradient-to-r from-teal-500 to-teal-600 transition-all duration-500"
                         style={{ width: `${getRemarkScore((submission.assessmentResult as any)?.remark || '')}%` }}
                       />
                     </div>
@@ -226,29 +232,29 @@ export default function ResultsPage({ params }: Props) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl mx-auto">
                   <div className="text-center space-y-2">
-                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
+                    <div className="flex items-center justify-center gap-2 text-gray-600">
+                      <Calendar className="h-4 w-4 text-teal-600" />
                       <span className="text-sm font-medium">Submitted</span>
                     </div>
-                    <div className="text-sm">
+                    <div className="text-sm text-gray-700">
                       {formatDistanceToNow(new Date(submission.createdAt), { addSuffix: true })}
                     </div>
                   </div>
-                  
+
                   <div className="text-center space-y-2">
-                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <Clock className="h-4 w-4" />
+                    <div className="flex items-center justify-center gap-2 text-gray-600">
+                      <Clock className="h-4 w-4 text-teal-600" />
                       <span className="text-sm font-medium">Processing Time</span>
                     </div>
-                    <div className="text-sm">&lt; 5 seconds</div>
+                    <div className="text-sm text-gray-700">&lt; 5 seconds</div>
                   </div>
-                  
+
                   <div className="text-center space-y-2">
-                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      {getSubmissionTypeIcon(submission.question.submissionType)}
+                    <div className="flex items-center justify-center gap-2 text-gray-600">
+                      <span className="text-teal-600">{getSubmissionTypeIcon(submission.question.submissionType)}</span>
                       <span className="text-sm font-medium">Type</span>
                     </div>
-                    <div className="text-sm">{getSubmissionTypeLabel(submission.question.submissionType)}</div>
+                    <div className="text-sm text-gray-700">{getSubmissionTypeLabel(submission.question.submissionType)}</div>
                   </div>
                 </div>
               </div>
@@ -256,10 +262,10 @@ export default function ResultsPage({ params }: Props) {
           </Card>
 
           {/* Submission Details */}
-          <Card>
+          <Card className="rounded-2xl shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
+                <Target className="h-5 w-5 text-teal-600" />
                 Submission Details
               </CardTitle>
             </CardHeader>
@@ -267,14 +273,14 @@ export default function ResultsPage({ params }: Props) {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <h4 className="font-semibold mb-2">Course</h4>
-                  <Badge variant="secondary">{submission.question.course.name}</Badge>
+                  <Badge variant="secondary" className="bg-teal-100 text-teal-700">{submission.question.course.name}</Badge>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-2">Assessment</h4>
                   <div className="space-y-1">
                     <div className="font-medium">#{submission.question.questionNumber}: {submission.question.title}</div>
-                    <div className="text-sm text-muted-foreground">{submission.question.description}</div>
+                    <div className="text-sm text-gray-600">{submission.question.description}</div>
                   </div>
                 </div>
               </div>
@@ -282,7 +288,7 @@ export default function ResultsPage({ params }: Props) {
               {submission.submissionUrl && (
                 <div>
                   <h4 className="font-semibold mb-2">Submitted Content</h4>
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                     <div className="flex items-center gap-2 text-sm font-mono">
                       <ExternalLink className="h-4 w-4" />
                       <a 
@@ -309,24 +315,25 @@ export default function ResultsPage({ params }: Props) {
             </CardContent>
           </Card>
 
-          {/* Detailed Feedback */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Detailed Feedback
+          {/* Detailed Feedback - MAIN FOCUS */}
+          <Card className="rounded-2xl shadow-xl border-2 border-teal-200">
+            <CardHeader className="bg-gradient-to-r from-teal-50 to-white pb-6">
+              <CardTitle className="flex items-center gap-3 text-2xl">
+                <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-white" />
+                </div>
+                AI Assessment & Feedback
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-8 pt-6">
               {(submission.assessmentResult as any)?.feedback && (
                 <div>
-                  <h4 className="font-semibold mb-3">AI Assessment</h4>
-                  <Alert className="border-blue-200 bg-blue-50">
-                    <AlertCircle className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-blue-900">
+                  <h4 className="font-bold text-lg mb-4 text-gray-900">Overall Assessment</h4>
+                  <div className="bg-teal-50 border-l-4 border-teal-600 p-6 rounded-xl">
+                    <p className="text-gray-800 leading-relaxed text-base">
                       {(submission.assessmentResult as any).feedback}
-                    </AlertDescription>
-                  </Alert>
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -334,13 +341,16 @@ export default function ResultsPage({ params }: Props) {
                 <div className="grid gap-6 md:grid-cols-2">
                   {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaMet &&
                    (submission.assessmentResult as any).criteriaMetAndBroke.criteriaMet.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold mb-3 text-green-700">✅ Criteria Met</h4>
-                      <ul className="space-y-2">
+                    <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
+                      <h4 className="font-bold text-lg mb-4 text-green-800 flex items-center gap-2">
+                        <CheckCircle2 className="h-6 w-6" />
+                        Strengths
+                      </h4>
+                      <ul className="space-y-3">
                         {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaMet.map((criteria: string, index: number) => (
-                          <li key={index} className="flex items-start gap-2 text-sm">
-                            <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                            <span>{criteria}</span>
+                          <li key={index} className="flex items-start gap-3">
+                            <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                            <span className="text-gray-700">{criteria}</span>
                           </li>
                         ))}
                       </ul>
@@ -349,13 +359,16 @@ export default function ResultsPage({ params }: Props) {
 
                   {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaBroke &&
                    (submission.assessmentResult as any).criteriaMetAndBroke.criteriaBroke.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold mb-3 text-red-700">❌ Areas for Improvement</h4>
-                      <ul className="space-y-2">
+                    <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
+                      <h4 className="font-bold text-lg mb-4 text-orange-800 flex items-center gap-2">
+                        <AlertCircle className="h-6 w-6" />
+                        Areas to Improve
+                      </h4>
+                      <ul className="space-y-3">
                         {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaBroke.map((criteria: string, index: number) => (
-                          <li key={index} className="flex items-start gap-2 text-sm">
-                            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                            <span>{criteria}</span>
+                          <li key={index} className="flex items-start gap-3">
+                            <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                            <span className="text-gray-700">{criteria}</span>
                           </li>
                         ))}
                       </ul>
@@ -367,40 +380,54 @@ export default function ResultsPage({ params }: Props) {
           </Card>
 
           {/* Next Steps */}
-          <Card className="bg-gradient-to-r from-purple-50 to-blue-50">
+          <Card className="bg-gradient-to-r from-teal-50 to-teal-100 border-teal-200 rounded-2xl shadow-md">
             <CardHeader>
-              <CardTitle>What's Next?</CardTitle>
+              <CardTitle className="text-gray-900">What's Next?</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2" asChild>
-                  <Link href="/">
-                    <Upload className="h-6 w-6" />
-                    <div className="text-left">
-                      <div className="font-semibold">Try Another Assessment</div>
-                      <div className="text-xs text-muted-foreground">Submit different work for feedback</div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <Link
+                  href="/"
+                  className="bg-white border-2 border-teal-200 rounded-xl p-6 hover:border-teal-400 hover:shadow-md transition-all group"
+                >
+                  <div className="flex flex-col items-start space-y-3">
+                    <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center group-hover:bg-teal-200 transition-colors">
+                      <Upload className="h-6 w-6 text-teal-600" />
                     </div>
-                  </Link>
-                </Button>
+                    <div>
+                      <div className="font-semibold text-gray-900 mb-1">Try Another Assessment</div>
+                      <div className="text-sm text-gray-600">Submit different work for feedback</div>
+                    </div>
+                  </div>
+                </Link>
 
-                <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2" asChild>
-                  <Link href={`/submit?courseName=${encodeURIComponent(submission.question.course.name)}&assessmentNumber=${submission.question.questionNumber}`}>
-                    <TrendingUp className="h-6 w-6" />
-                    <div className="text-left">
-                      <div className="font-semibold">Resubmit Improved Work</div>
-                      <div className="text-xs text-muted-foreground">Apply feedback and try again</div>
+                <Link
+                  href={`/submit?courseName=${encodeURIComponent(submission.question.course.name)}&assessmentNumber=${submission.question.questionNumber}`}
+                  className="bg-white border-2 border-teal-200 rounded-xl p-6 hover:border-teal-400 hover:shadow-md transition-all group"
+                >
+                  <div className="flex flex-col items-start space-y-3">
+                    <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center group-hover:bg-teal-200 transition-colors">
+                      <TrendingUp className="h-6 w-6 text-teal-600" />
                     </div>
-                  </Link>
-                </Button>
+                    <div>
+                      <div className="font-semibold text-gray-900 mb-1">Resubmit Improved Work</div>
+                      <div className="text-sm text-gray-600">Apply feedback and try again</div>
+                    </div>
+                  </div>
+                </Link>
 
                 <button
-                  className="border border-gray-300 rounded-md h-auto p-4 flex flex-col items-start space-y-2 hover:bg-gray-50"
                   onClick={shareResults}
+                  className="bg-white border-2 border-teal-200 rounded-xl p-6 hover:border-teal-400 hover:shadow-md transition-all group text-left"
                 >
-                  <Share2 className="h-6 w-6" />
-                  <div className="text-left">
-                    <div className="font-semibold">Share Results</div>
-                    <div className="text-xs text-muted-foreground">Show your progress to others</div>
+                  <div className="flex flex-col items-start space-y-3">
+                    <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center group-hover:bg-teal-200 transition-colors">
+                      <Share2 className="h-6 w-6 text-teal-600" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-900 mb-1">Share Results</div>
+                      <div className="text-sm text-gray-600">Show your progress to others</div>
+                    </div>
                   </div>
                 </button>
               </div>
@@ -408,12 +435,13 @@ export default function ResultsPage({ params }: Props) {
           </Card>
 
           {/* Footer Info */}
-          <div className="text-center text-sm text-muted-foreground">
+          <div className="text-center text-sm text-gray-500">
             <p>Assessment ID: {submission.id}</p>
             <p className="mt-1">Results are stored for your reference and can be accessed anytime with this link</p>
           </div>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

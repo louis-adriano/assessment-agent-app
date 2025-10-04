@@ -4,13 +4,14 @@ import { findQuestionByNumber } from '@/lib/actions/lookup-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { 
-  ArrowLeft, 
-  FileText, 
-  Play, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
+import { Sidebar } from '@/components/layout/Sidebar'
+import {
+  ArrowLeft,
+  FileText,
+  Play,
+  Clock,
+  CheckCircle,
+  AlertCircle,
   Info,
   GitBranch,
   Globe,
@@ -72,52 +73,55 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
   const question = questionResult.data
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/courses/${encodeURIComponent(courseName)}`}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                {question.course.name}
-              </Link>
-            </Button>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-semibold text-sm">
-                  {assessmentNumber}
-                </div>
-                <h1 className="text-3xl font-bold text-gray-900">{question.title}</h1>
-              </div>
-              <div className="flex items-center gap-4 text-gray-600">
-                <Badge variant="outline">
-                  {question.submissionType.replace('_', ' ').toLowerCase()}
-                </Badge>
-                <span className="text-sm">Self-paced • Instant feedback</span>
-              </div>
-            </div>
-            <Button asChild>
-              <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${assessmentNumber}`}>
-                <Play className="mr-2 h-4 w-4" />
-                Start Assessment
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Sidebar />
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="flex-1 lg:pl-72">
+        {/* Header */}
+        <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-200">
+          <div className="px-6 py-6 md:px-12">
+            <div className="flex items-center gap-4">
+              <Button variant="outline" size="sm" className="rounded-xl" asChild>
+                <Link href={`/courses/${encodeURIComponent(courseName)}`}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  {question.course.name}
+                </Link>
+              </Button>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-sm shadow-lg">
+                    {assessmentNumber}
+                  </div>
+                  <h1 className="text-3xl font-bold text-gray-900">{question.title}</h1>
+                </div>
+                <div className="flex items-center gap-4 text-gray-600">
+                  <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200">
+                    {question.submissionType.replace('_', ' ').toLowerCase()}
+                  </Badge>
+                  <span className="text-sm">Self-paced • Instant feedback</span>
+                </div>
+              </div>
+              <Button className="bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
+                <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${assessmentNumber}`}>
+                  <Play className="mr-2 h-4 w-4" />
+                  Start Assessment
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <div className="px-6 py-8 md:px-12">
         <div className="grid gap-8 lg:grid-cols-3">
           
           {/* Assessment Content */}
           <div className="lg:col-span-2">
             {/* Assessment Description */}
-            <Card className="mb-6">
+            <Card className="mb-6 rounded-2xl shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Info className="h-5 w-5" />
+                  <Info className="h-5 w-5 text-teal-600" />
                   Assessment Description
                 </CardTitle>
               </CardHeader>
@@ -131,10 +135,10 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
             </Card>
 
             {/* Submission Requirements */}
-            <Card className="mb-6">
+            <Card className="mb-6 rounded-2xl shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  {getSubmissionTypeIcon(question.submissionType)}
+                  <span className="text-teal-600">{getSubmissionTypeIcon(question.submissionType)}</span>
                   Submission Requirements
                 </CardTitle>
                 <CardDescription>
@@ -144,17 +148,17 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
               <CardContent>
                 <div className="space-y-4">
                   {question.submissionType === 'TEXT' && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h4 className="font-medium text-blue-900 mb-2">Text Submission</h4>
-                      <p className="text-blue-800 text-sm">
-                        Provide a detailed written response. Your answer will be evaluated for completeness, 
+                    <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
+                      <h4 className="font-medium text-teal-900 mb-2">Text Submission</h4>
+                      <p className="text-teal-800 text-sm">
+                        Provide a detailed written response. Your answer will be evaluated for completeness,
                         accuracy, and depth of understanding.
                       </p>
                     </div>
                   )}
 
                   {question.submissionType === 'GITHUB_REPO' && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
                       <h4 className="font-medium text-gray-900 mb-2">GitHub Repository Submission</h4>
                       <p className="text-gray-700 text-sm mb-3">
                         Submit a link to your GitHub repository. Make sure your repository includes:
@@ -169,12 +173,12 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                   )}
 
                   {question.submissionType === 'WEBSITE' && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <h4 className="font-medium text-green-900 mb-2">Website Submission</h4>
-                      <p className="text-green-800 text-sm mb-3">
+                    <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
+                      <h4 className="font-medium text-teal-900 mb-2">Website Submission</h4>
+                      <p className="text-teal-800 text-sm mb-3">
                         Submit a link to your live website or web application. Ensure:
                       </p>
-                      <ul className="text-sm text-green-800 space-y-1 ml-4">
+                      <ul className="text-sm text-teal-800 space-y-1 ml-4">
                         <li>• The website is publicly accessible</li>
                         <li>• All functionality works as expected</li>
                         <li>• The design is responsive and professional</li>
@@ -184,20 +188,20 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                   )}
 
                   {question.submissionType === 'DOCUMENT' && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <h4 className="font-medium text-purple-900 mb-2">Document Submission</h4>
-                      <p className="text-purple-800 text-sm">
-                        You can either paste your document content directly or provide a link to 
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Document Submission</h4>
+                      <p className="text-gray-700 text-sm">
+                        You can either paste your document content directly or provide a link to
                         an online document (Google Docs, etc.). Ensure proper formatting and completeness.
                       </p>
                     </div>
                   )}
 
                   {question.submissionType === 'SCREENSHOT' && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                      <h4 className="font-medium text-orange-900 mb-2">Screenshot/Visual Submission</h4>
-                      <p className="text-orange-800 text-sm">
-                        Provide a detailed description of your screenshot or visual work. 
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Screenshot/Visual Submission</h4>
+                      <p className="text-gray-700 text-sm">
+                        Provide a detailed description of your screenshot or visual work.
                         If you have an image hosted online, you can include the link.
                       </p>
                     </div>
@@ -208,16 +212,16 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
 
             {/* Guidance */}
             {question.guidance && (
-              <Card>
+              <Card className="rounded-2xl shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5" />
+                    <AlertCircle className="h-5 w-5 text-teal-600" />
                     Assessment Guidance
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <p className="text-amber-800 leading-relaxed">
+                  <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
+                    <p className="text-teal-800 leading-relaxed">
                       {question.guidance}
                     </p>
                   </div>
@@ -228,21 +232,21 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
 
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-8 space-y-6">
-              
+            <div className="sticky top-24 space-y-6">
+
               {/* Quick Actions */}
-              <Card>
+              <Card className="rounded-2xl shadow-md">
                 <CardHeader>
                   <CardTitle>Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button className="w-full" asChild>
+                  <Button className="w-full bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
                     <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${assessmentNumber}`}>
                       <Play className="mr-2 h-4 w-4" />
                       Start Assessment
                     </Link>
                   </Button>
-                  <Button variant="outline" className="w-full" asChild>
+                  <Button variant="outline" className="w-full rounded-xl" asChild>
                     <Link href={`/courses/${encodeURIComponent(courseName)}`}>
                       View All Assessments
                     </Link>
@@ -251,7 +255,7 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
               </Card>
 
               {/* Assessment Info */}
-              <Card>
+              <Card className="rounded-2xl shadow-md">
                 <CardHeader>
                   <CardTitle>Assessment Details</CardTitle>
                 </CardHeader>
@@ -268,7 +272,7 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                   
                   <div>
                     <h4 className="font-medium text-gray-900 mb-2">Submission Type</h4>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200">
                       {question.submissionType.replace('_', ' ').toLowerCase()}
                     </Badge>
                   </div>
@@ -277,19 +281,19 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                     <h4 className="font-medium text-gray-900 mb-2">Assessment Features</h4>
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-teal-600" />
                         <span>Instant AI feedback</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-teal-600" />
                         <span>Base example comparison</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-teal-600" />
                         <span>Detailed improvement suggestions</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-teal-600" />
                         <span>Unlimited attempts</span>
                       </div>
                     </div>
@@ -298,14 +302,14 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
               </Card>
 
               {/* Assessment Process */}
-              <Card>
+              <Card className="rounded-2xl shadow-md">
                 <CardHeader>
                   <CardTitle>How It Works</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex gap-3">
-                      <div className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full font-semibold text-xs">
+                      <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-xs shadow-lg">
                         1
                       </div>
                       <div>
@@ -315,9 +319,9 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-3">
-                      <div className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full font-semibold text-xs">
+                      <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-xs shadow-lg">
                         2
                       </div>
                       <div>
@@ -327,9 +331,9 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-3">
-                      <div className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full font-semibold text-xs">
+                      <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-xs shadow-lg">
                         3
                       </div>
                       <div>
@@ -339,9 +343,9 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-3">
-                      <div className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full font-semibold text-xs">
+                      <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-xs shadow-lg">
                         4
                       </div>
                       <div>
@@ -356,27 +360,27 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
               </Card>
 
               {/* Navigation */}
-              <Card>
+              <Card className="rounded-2xl shadow-md">
                 <CardHeader>
                   <CardTitle>Navigation</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2 text-sm">
-                    <Link 
-                      href="/courses" 
-                      className="block text-blue-600 hover:text-blue-800 hover:underline"
+                    <Link
+                      href="/courses"
+                      className="block text-teal-600 hover:text-teal-700 hover:underline"
                     >
                       ← All Courses
                     </Link>
-                    <Link 
+                    <Link
                       href={`/courses/${encodeURIComponent(courseName)}`}
-                      className="block text-blue-600 hover:text-blue-800 hover:underline"
+                      className="block text-teal-600 hover:text-teal-700 hover:underline"
                     >
                       ← {question.course.name}
                     </Link>
-                    <Link 
-                      href="/submit" 
-                      className="block text-blue-600 hover:text-blue-800 hover:underline"
+                    <Link
+                      href="/submit"
+                      className="block text-teal-600 hover:text-teal-700 hover:underline"
                     >
                       Submit Any Assessment →
                     </Link>
@@ -389,7 +393,7 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
 
         {/* Bottom CTA */}
         <div className="mt-12">
-          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <Card className="bg-gradient-to-r from-teal-50 to-teal-100 border-teal-200 rounded-2xl shadow-md">
             <CardContent className="text-center py-8">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
                 Ready to Get Started?
@@ -398,13 +402,13 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                 Submit your work now and receive instant AI-powered feedback to help you improve.
               </p>
               <div className="flex gap-4 justify-center">
-                <Button size="lg" asChild>
+                <Button size="lg" className="bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
                   <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${assessmentNumber}`}>
                     <Play className="mr-2 h-4 w-4" />
                     Start Assessment
                   </Link>
                 </Button>
-                <Button size="lg" variant="outline" asChild>
+                <Button size="lg" variant="outline" className="rounded-xl" asChild>
                   <Link href={`/courses/${encodeURIComponent(courseName)}`}>
                     View Other Assessments
                   </Link>
@@ -412,6 +416,7 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
               </div>
             </CardContent>
           </Card>
+        </div>
         </div>
       </main>
     </div>

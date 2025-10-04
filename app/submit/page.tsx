@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Github, Globe, FileText, Image, Upload, CheckCircle, XCircle, ArrowLeft, Info } from 'lucide-react'
 import { getCourseByName } from '@/lib/actions/lookup-actions'
 import { submitAnonymousAssessment } from '@/lib/actions/submission-actions'
+import { Sidebar } from '@/components/layout/Sidebar'
 import Link from 'next/link'
 
 interface Course {
@@ -312,86 +313,93 @@ function SubmitPageContent() {
 
   if (!courseName || !assessmentNumber) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="container mx-auto py-12 max-w-2xl">
-          <Card>
-            <CardContent className="pt-6">
-              <Alert>
-                <XCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Invalid submission URL. Please access this page from a course assessment link.
-                </AlertDescription>
-              </Alert>
-              <div className="mt-4">
-                <Link href="/">
-                  <Button variant="outline">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Courses
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <Sidebar />
+        <main className="flex-1 lg:pl-72">
+          <div className="px-6 py-12 md:px-12">
+            <div className="max-w-2xl mx-auto">
+              <Card className="rounded-2xl shadow-md">
+                <CardContent className="pt-6">
+                  <Alert variant="destructive" className="rounded-xl">
+                    <XCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Invalid submission URL. Please access this page from a course assessment link.
+                    </AlertDescription>
+                  </Alert>
+                  <div className="mt-4">
+                    <Link href="/">
+                      <Button variant="outline" className="rounded-xl">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Courses
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </main>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto py-12 max-w-3xl">
-        <div className="space-y-6">
-          {/* Navigation */}
-          <Link href="/">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Courses
-            </Button>
-          </Link>
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Sidebar />
+      <main className="flex-1 lg:pl-72">
+        <div className="px-6 py-12 md:px-12">
+          <div className="max-w-3xl mx-auto space-y-6">
+            {/* Navigation */}
+            <Link href="/">
+              <Button variant="outline" size="sm" className="rounded-xl">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Courses
+              </Button>
+            </Link>
 
-          {/* Course and Question Info */}
-          {course && question && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{course.name}</Badge>
-                      <Badge variant="outline">Assessment #{question.questionNumber}</Badge>
-                    </div>
-                    <CardTitle className="text-2xl">{question.title}</CardTitle>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    {getSubmissionTypeIcon(question.submissionType)}
-                    <span className="text-sm font-medium">
-                      {getSubmissionTypeLabel(question.submissionType)}
-                    </span>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold mb-2">Description</h3>
-                    <p className="text-muted-foreground">{question.description}</p>
-                  </div>
-                  
-                  {question.guidance && (
-                    <div>
-                      <h3 className="font-semibold mb-2">Guidance</h3>
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <p className="text-blue-900">{question.guidance}</p>
+            {/* Course and Question Info */}
+            {course && question && (
+              <Card className="rounded-2xl shadow-md">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-teal-100 text-teal-700">{course.name}</Badge>
+                        <Badge variant="outline" className="border-teal-200 text-teal-700">Assessment #{question.questionNumber}</Badge>
                       </div>
+                      <CardTitle className="text-2xl">{question.title}</CardTitle>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                    <div className="flex items-center gap-2 text-teal-600">
+                      {getSubmissionTypeIcon(question.submissionType)}
+                      <span className="text-sm font-medium">
+                        {getSubmissionTypeLabel(question.submissionType)}
+                      </span>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-semibold mb-2">Description</h3>
+                      <p className="text-gray-600">{question.description}</p>
+                    </div>
+
+                    {question.guidance && (
+                      <div>
+                        <h3 className="font-semibold mb-2">Guidance</h3>
+                        <div className="bg-teal-50 p-4 rounded-xl border border-teal-200">
+                          <p className="text-teal-800">{question.guidance}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
           {/* Validation Errors */}
           {validationErrors.length > 0 && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="rounded-xl">
               <XCircle className="h-4 w-4" />
               <AlertDescription>
                 <ul className="list-disc list-inside space-y-1">
@@ -405,7 +413,7 @@ function SubmitPageContent() {
 
           {/* Error Alert */}
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="rounded-xl">
               <XCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
@@ -413,9 +421,9 @@ function SubmitPageContent() {
 
           {/* Success Alert */}
           {success && (
-            <Alert className="border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
+            <Alert className="border-teal-200 bg-teal-50 rounded-xl">
+              <CheckCircle className="h-4 w-4 text-teal-600" />
+              <AlertDescription className="text-teal-800">
                 {success} Redirecting to results...
               </AlertDescription>
             </Alert>
@@ -423,18 +431,18 @@ function SubmitPageContent() {
 
           {/* Submission Form */}
           {question && !success && (
-            <Card>
+            <Card className="rounded-2xl shadow-md">
               <CardHeader>
                 <CardTitle>Submit Your Work</CardTitle>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {renderSubmissionForm()}
-                  
-                  <Button 
-                    type="submit" 
+
+                  <Button
+                    type="submit"
                     disabled={isSubmitting || !!success}
-                    className="w-full"
+                    className="w-full bg-teal-600 hover:bg-teal-700 rounded-xl"
                     size="lg"
                   >
                     {isSubmitting ? (
@@ -456,15 +464,15 @@ function SubmitPageContent() {
 
           {/* Results Link */}
           {submissionId && (
-            <Card className="bg-green-50 border-green-200">
+            <Card className="bg-teal-50 border-teal-200 rounded-2xl shadow-md">
               <CardContent className="pt-6">
                 <div className="text-center space-y-4">
-                  <div className="text-green-800">
-                    <CheckCircle className="h-8 w-8 mx-auto mb-2" />
+                  <div className="text-teal-800">
+                    <CheckCircle className="h-8 w-8 mx-auto mb-2 text-teal-600" />
                     <h3 className="font-semibold">Assessment Complete!</h3>
                   </div>
                   <Link href={`/results/${submissionId}`}>
-                    <Button className="bg-green-600 hover:bg-green-700">
+                    <Button className="bg-teal-600 hover:bg-teal-700 rounded-xl">
                       View Your Results
                     </Button>
                   </Link>
@@ -472,8 +480,9 @@ function SubmitPageContent() {
               </CardContent>
             </Card>
           )}
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
@@ -481,10 +490,10 @@ function SubmitPageContent() {
 export default function SubmitPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 items-center justify-center">
         <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-          <p>Loading submission form...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-teal-600" />
+          <p className="text-gray-600">Loading submission form...</p>
         </div>
       </div>
     }>
