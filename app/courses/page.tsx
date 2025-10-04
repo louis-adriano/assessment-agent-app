@@ -1,12 +1,20 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { getAllCourses } from '@/lib/actions/lookup-actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { BookOpen, Code, FileText, Github, Globe, Image, ArrowRight } from 'lucide-react'
-import { getAllCourses } from '@/lib/actions/lookup-actions'
+import { BookOpen, ArrowRight, Github, Globe, FileText } from 'lucide-react'
+import Link from 'next/link'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Sidebar } from '@/components/layout/Sidebar'
 
 interface Course {
   id: string
@@ -21,220 +29,175 @@ interface Question {
   title: string
   description: string
   submissionType: string
-  guidance?: string
 }
 
 export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([])
+  const [sortedCourses, setSortedCourses] = useState<Course[]>([])
+  const [sortBy, setSortBy] = useState<string>('name-asc')
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
 
   useEffect(() => {
     loadCourses()
   }, [])
 
+  useEffect(() => {
+    sortCourses()
+  }, [courses, sortBy])
+
   const loadCourses = async () => {
-    try {
-      const result = await getAllCourses()
-      if (result.success && result.data) {
-        setCourses(result.data)
-      } else {
-        setError(result.error || 'Failed to load courses')
-      }
-    } catch (err) {
-      console.error('Error loading courses:', err)
-      setError('Failed to load courses')
-    } finally {
-      setLoading(false)
+    const result = await getAllCourses()
+    if (result.success && result.data) {
+      setCourses(result.data)
     }
+    setLoading(false)
   }
 
-  const getSubmissionIcon = (type: string) => {
+  const sortCourses = () => {
+    const sorted = [...courses]
+
+    switch (sortBy) {
+      case 'name-asc':
+        sorted.sort((a, b) => a.name.localeCompare(b.name))
+        break
+      case 'name-desc':
+        sorted.sort((a, b) => b.name.localeCompare(a.name))
+        break
+      case 'assessments-asc':
+        sorted.sort((a, b) => a.questions.length - b.questions.length)
+        break
+      case 'assessments-desc':
+        sorted.sort((a, b) => b.questions.length - a.questions.length)
+        break
+    }
+
+    setSortedCourses(sorted)
+  }
+
+  const getSubmissionTypeIcon = (type: string) => {
     switch (type) {
-      case 'github_repo':
-        return <Github className="w-4 h-4" />
-      case 'website':
-        return <Globe className="w-4 h-4" />
-      case 'document':
-        return <FileText className="w-4 h-4" />
-      case 'screenshot':
-        return <Image className="w-4 h-4" />
-      case 'text':
-        return <FileText className="w-4 h-4" />
-      default:
-        return <Code className="w-4 h-4" />
+      case 'github_repo': return <Github className="h-4 w-4" />
+      case 'website': return <Globe className="h-4 w-4" />
+      case 'document': return <FileText className="h-4 w-4" />
+      case 'screenshot': return <FileText className="h-4 w-4" />
+      case 'text': return <FileText className="h-4 w-4" />
+      default: return <FileText className="h-4 w-4" />
     }
-  }
-
-  const getSubmissionTypeColor = (type: string) => {
-    switch (type) {
-      case 'github_repo':
-        return 'bg-purple-100 text-purple-800'
-      case 'website':
-        return 'bg-blue-100 text-blue-800'
-      case 'document':
-        return 'bg-green-100 text-green-800'
-      case 'screenshot':
-        return 'bg-orange-100 text-orange-800'
-      case 'text':
-        return 'bg-gray-100 text-gray-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="text-center">
-          <p className="text-muted-foreground">Loading courses...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto py-8">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center text-red-600">
-              <p>{error}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
   }
 
   return (
-    <div className="container mx-auto py-8 max-w-6xl">
-      <div className="space-y-6">
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar />
+
+      {/* Main Content */}
+      <main className="flex-1 lg:pl-72">
         {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold flex items-center justify-center gap-2">
-            <BookOpen className="w-8 h-8" />
-            Available Courses
-          </h1>
-          <p className="text-muted-foreground">
-            Browse courses and submit your assessments for instant AI-powered feedback
-          </p>
+        <div className="bg-white border-b">
+          <div className="px-6 py-8 md:px-12">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold mb-2">All Courses</h1>
+                  <p className="text-muted-foreground">
+                    Browse and enroll in courses to start learning
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+                      <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+                      <SelectItem value="assessments-desc">Most Assessments</SelectItem>
+                      <SelectItem value="assessments-asc">Least Assessments</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Quick Links */}
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Quick Test</h3>
-                <p className="text-sm text-muted-foreground">
-                  Test the GitHub repository analysis feature
-                </p>
+        {/* Courses Grid */}
+        <div className="px-6 py-8 md:px-12">
+          <div className="max-w-7xl mx-auto">
+            {loading ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Loading courses...</p>
               </div>
-              <Link href="/test/github">
-                <Button variant="outline" className="flex items-center gap-2">
-                  <Github className="w-4 h-4" />
-                  GitHub Test Page
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Courses List */}
-        {courses.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center text-muted-foreground">
-                <p>No courses available yet. Please add some courses through the admin panel.</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {courses.map((course) => (
-              <Card key={course.id}>
-                <CardHeader>
-                  <CardTitle className="text-xl">{course.name}</CardTitle>
-                  <CardDescription>{course.description}</CardDescription>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">
-                      {course.questions.length} Questions
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Available Assessments:</h4>
-                    <div className="grid gap-3">
-                      {course.questions.map((question) => (
-                        <Card key={question.id} className="border border-gray-200">
-                          <CardContent className="pt-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge variant="secondary">
-                                    Question {question.questionNumber}
-                                  </Badge>
-                                  <Badge 
-                                    className={`${getSubmissionTypeColor(question.submissionType)} flex items-center gap-1`}
-                                  >
-                                    {getSubmissionIcon(question.submissionType)}
-                                    {question.submissionType.replace('_', ' ')}
-                                  </Badge>
-                                </div>
-                                <h5 className="font-medium mb-1">{question.title}</h5>
-                                {question.description && (
-                                  <p className="text-sm text-muted-foreground mb-2">
-                                    {question.description.slice(0, 150)}
-                                    {question.description.length > 150 && '...'}
-                                  </p>
-                                )}
-                                {question.guidance && (
-                                  <p className="text-xs text-blue-600">
-                                    💡 {question.guidance.slice(0, 100)}
-                                    {question.guidance.length > 100 && '...'}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="ml-4">
-                                <Link 
-                                  href={`/submit?course=${encodeURIComponent(course.name)}&question=${question.questionNumber}`}
-                                >
-                                  <Button className="flex items-center gap-2">
-                                    Submit Assessment
-                                    <ArrowRight className="w-4 h-4" />
-                                  </Button>
-                                </Link>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+            ) : sortedCourses.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="pt-12 pb-12">
+                  <div className="text-center space-y-4">
+                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                      <BookOpen className="h-10 w-10 text-gray-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold mb-2">No Courses Available</h3>
+                      <p className="text-muted-foreground">
+                        Courses will appear here once they're created
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        )}
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {sortedCourses.map((course: any) => (
+                  <Card key={course.id} className="hover:shadow-lg transition-shadow group">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <Badge variant="secondary" className="text-xs">
+                          {course.questions.length} Assessment{course.questions.length !== 1 ? 's' : ''}
+                        </Badge>
+                      </div>
+                      <CardTitle className="text-xl line-clamp-2 group-hover:text-teal-600 transition-colors">
+                        {course.name}
+                      </CardTitle>
+                      <CardDescription className="line-clamp-3 mt-2">
+                        {course.description}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {/* Assessments Preview */}
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-muted-foreground">Assessments:</p>
+                          <div className="space-y-2">
+                            {course.questions.slice(0, 3).map((question: any) => (
+                              <div key={question.id} className="flex items-center gap-2 text-sm">
+                                <div className="flex items-center gap-1.5 text-muted-foreground">
+                                  {getSubmissionTypeIcon(question.submissionType)}
+                                  <span className="truncate">{question.title}</span>
+                                </div>
+                              </div>
+                            ))}
+                            {course.questions.length > 3 && (
+                              <p className="text-xs text-muted-foreground pl-6">
+                                +{course.questions.length - 3} more
+                              </p>
+                            )}
+                          </div>
+                        </div>
 
-        {/* Instructions */}
-        <Card className="bg-gray-50">
-          <CardContent className="pt-6">
-            <div className="text-sm space-y-2">
-              <p><strong>How it works:</strong></p>
-              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                <li>Choose a course and question that matches your submission type</li>
-                <li>Click "Submit Assessment" to access the submission form</li>
-                <li>Provide your work (GitHub repo, document, website, etc.)</li>
-                <li>Get instant AI-powered feedback with detailed analysis</li>
-                <li>Use the feedback to improve your work and resubmit if needed</li>
-              </ol>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                        {/* Start Course Button */}
+                        <Button className="w-full group-hover:bg-teal-600" size="sm" asChild>
+                          <Link href={`/courses/${encodeURIComponent(course.name)}`}>
+                            Start Course
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   )
 }
