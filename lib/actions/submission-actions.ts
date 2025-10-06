@@ -513,7 +513,6 @@ export async function submitAuthenticatedAssessment(formData: FormData, userId: 
         userId: userId, // Required for manual feedback
         submissionContent: sanitizedContent,
         status: 'PENDING', // Pending manual review
-        assessmentResult: null,
       },
     });
 
