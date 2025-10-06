@@ -43,7 +43,7 @@ export default function ResultsPage({ params }: Props) {
   const [error, setError] = useState<string | null>(null)
   const { data: session } = useSession()
 
-  const isAdmin = session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'COURSE_ADMIN'
+  const isAdmin = (session?.user as any)?.role === 'SUPER_ADMIN' || (session?.user as any)?.role === 'COURSE_ADMIN'
 
   useEffect(() => {
     async function loadSubmission() {
