@@ -9,10 +9,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Github, Globe, FileText, Image, Upload, CheckCircle, XCircle, ArrowLeft, Info } from 'lucide-react'
+import { Loader2, Github, Globe, FileText, Image, Upload, CheckCircle, XCircle, ArrowLeft, Info, LogIn } from 'lucide-react'
 import { getCourseByName } from '@/lib/actions/lookup-actions'
-import { submitAnonymousAssessment } from '@/lib/actions/submission-actions'
+import { submitAnonymousAssessment, submitAuthenticatedAssessment } from '@/lib/actions/submission-actions'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { useSession } from '@/lib/auth-client'
 import Link from 'next/link'
 
 interface Course {
@@ -41,10 +42,11 @@ function SubmitPageContent() {
   const [success, setSuccess] = useState('')
   const [submissionId, setSubmissionId] = useState('')
   const [validationErrors, setValidationErrors] = useState<string[]>([])
-  
+
   const searchParams = useSearchParams()
   const router = useRouter()
-  
+  const { data: session, isPending } = useSession()
+
   const courseName = searchParams.get('courseName')
   const assessmentNumber = searchParams.get('assessmentNumber')
 
@@ -166,9 +168,10 @@ function SubmitPageContent() {
       if (file && ['DOCUMENT', 'SCREENSHOT'].includes(question.submissionType)) {
         formData.append('file', file)
       }
-      
+
+      // Submit assessment (AI will grade automatically)
       const result = await submitAnonymousAssessment(formData)
-      
+
       if (result.success && result.submissionId) {
         setSuccess('Assessment completed successfully!')
         setSubmissionId(result.submissionId)
@@ -396,6 +399,7 @@ function SubmitPageContent() {
                 </CardContent>
               </Card>
             )}
+
 
           {/* Validation Errors */}
           {validationErrors.length > 0 && (

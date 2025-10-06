@@ -123,9 +123,9 @@ export async function submitAssessment(
 
     // Validate submission type matches question
     if (question.submissionType !== submissionType) {
-      return { 
-        success: false, 
-        error: `Question expects ${question.submissionType} submission, but received ${submissionType}` 
+      return {
+        success: false,
+        error: `Question expects ${question.submissionType} submission, but received ${submissionType}`
       };
     }
 
@@ -475,4 +475,62 @@ export async function submitAnonymousAssessment(formData: FormData): Promise<Act
     question.submissionType, // Use the actual submission type from the question
     submissionContent
   );
+}
+
+/**
+ * Submit assessment with authentication (for manual feedback mode)
+ */
+export async function submitAuthenticatedAssessment(formData: FormData, userId: string): Promise<ActionResult> {
+  const courseName = formData.get('courseName') as string;
+  const assessmentNumber = parseInt(formData.get('assessmentNumber') as string);
+  const submissionContent = formData.get('submissionContent') as string;
+
+  console.log('📝 submitAuthenticatedAssessment called with:', { courseName, assessmentNumber, userId });
+
+  // Get the course and question
+  const courseResult = await getCourseByName(courseName);
+
+  if (!courseResult.success || !courseResult.data) {
+    return { success: false, error: courseResult.error || `Course "${courseName}" not found` };
+  }
+
+  const question = courseResult.data.questions.find(
+    (q: any) => q.questionNumber === assessmentNumber
+  );
+
+  if (!question) {
+    return { success: false, error: `Assessment #${assessmentNumber} not found` };
+  }
+
+  // Sanitize content
+  const sanitizedContent = sanitizeTextContent(submissionContent || '');
+
+  try {
+    // Create submission with userId for manual feedback
+    const submission = await prisma.submission.create({
+      data: {
+        questionId: question.id,
+        userId: userId, // Required for manual feedback
+        submissionContent: sanitizedContent,
+        status: 'PENDING', // Pending manual review
+        assessmentResult: null,
+      },
+    });
+
+    console.log('📝 Authenticated submission created:', submission.id);
+
+    revalidatePath(`/results/${submission.id}`);
+    return {
+      success: true,
+      submissionId: submission.id,
+      data: { submissionId: submission.id }
+    };
+
+  } catch (error) {
+    console.error('❌ Authenticated submission error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to submit assessment',
+    };
+  }
 }

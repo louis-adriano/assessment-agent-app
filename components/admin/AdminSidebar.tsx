@@ -14,13 +14,15 @@ import {
   Settings,
   Search,
   LogOut,
-  ArrowLeft
+  ArrowLeft,
+  ClipboardCheck
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: Home },
   { name: 'Courses', href: '/admin/courses', icon: BookOpen },
   { name: 'Assessments', href: '/admin/assessments', icon: FileText },
+  { name: 'Manual Review', href: '/admin/manual-submissions', icon: ClipboardCheck },
   { name: 'Submissions', href: '/admin/submissions', icon: Users },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
 ]

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { useSession } from '@/lib/auth-client'
 import {
   ArrowLeft,
   Calendar,
@@ -24,7 +25,8 @@ import {
   ExternalLink,
   Download,
   Share2,
-  Loader2
+  Loader2,
+  Edit
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
@@ -39,6 +41,9 @@ export default function ResultsPage({ params }: Props) {
   const [submission, setSubmission] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { data: session } = useSession()
+
+  const isAdmin = session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'COURSE_ADMIN'
 
   useEffect(() => {
     async function loadSubmission() {
@@ -203,27 +208,29 @@ export default function ResultsPage({ params }: Props) {
               </p>
             </div>
 
-          {/* Assessment Score Card */}
-          <Card className="bg-gradient-to-r from-white to-teal-50 border-0 shadow-xl rounded-2xl">
+          {/* AI Assessment Results */}
+          {(submission.assessmentResult as any)?.remark && (
+          <Card className="bg-gradient-to-r from-white to-sky-50 border-0 shadow-xl rounded-2xl">
             <CardContent className="pt-8 pb-8">
               <div className="text-center space-y-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-center gap-3">
                     {getRemarkIcon((submission.assessmentResult as any)?.remark || '')}
-                    <Badge 
+                    <Badge
                       className={`text-lg px-6 py-2 ${getRemarkColor((submission.assessmentResult as any)?.remark || '')}`}
                     >
                       {(submission.assessmentResult as any)?.remark}
                     </Badge>
                   </div>
-                  
+
                   <div className="space-y-2">
-                    <div className="text-5xl font-bold text-teal-600">
+                    <div className="text-5xl font-bold text-sky-600">
                       {getRemarkScore((submission.assessmentResult as any)?.remark || '')}%
                     </div>
+                    <p className="text-sm text-gray-600">AI Assessment Score</p>
                     <div className="w-64 mx-auto h-3 bg-gray-200 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-teal-500 to-teal-600 transition-all duration-500"
+                        className="h-full bg-gradient-to-r from-sky-500 to-sky-600 transition-all duration-500"
                         style={{ width: `${getRemarkScore((submission.assessmentResult as any)?.remark || '')}%` }}
                       />
                     </div>
@@ -233,7 +240,7 @@ export default function ResultsPage({ params }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl mx-auto">
                   <div className="text-center space-y-2">
                     <div className="flex items-center justify-center gap-2 text-gray-600">
-                      <Calendar className="h-4 w-4 text-teal-600" />
+                      <Calendar className="h-4 w-4 text-sky-600" />
                       <span className="text-sm font-medium">Submitted</span>
                     </div>
                     <div className="text-sm text-gray-700">
@@ -243,7 +250,7 @@ export default function ResultsPage({ params }: Props) {
 
                   <div className="text-center space-y-2">
                     <div className="flex items-center justify-center gap-2 text-gray-600">
-                      <Clock className="h-4 w-4 text-teal-600" />
+                      <Clock className="h-4 w-4 text-sky-600" />
                       <span className="text-sm font-medium">Processing Time</span>
                     </div>
                     <div className="text-sm text-gray-700">&lt; 5 seconds</div>
@@ -251,7 +258,7 @@ export default function ResultsPage({ params }: Props) {
 
                   <div className="text-center space-y-2">
                     <div className="flex items-center justify-center gap-2 text-gray-600">
-                      <span className="text-teal-600">{getSubmissionTypeIcon(submission.question.submissionType)}</span>
+                      <span className="text-sky-600">{getSubmissionTypeIcon(submission.question.submissionType)}</span>
                       <span className="text-sm font-medium">Type</span>
                     </div>
                     <div className="text-sm text-gray-700">{getSubmissionTypeLabel(submission.question.submissionType)}</div>
@@ -260,6 +267,117 @@ export default function ResultsPage({ params }: Props) {
               </div>
             </CardContent>
           </Card>
+          )}
+
+          {/* Admin: Add Manual Review Button */}
+          {isAdmin && !(submission as any).manualFeedback && (
+            <Card className="border-sky-200 bg-sky-50 rounded-2xl">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-sky-500 rounded-full flex items-center justify-center">
+                      <Edit className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg mb-1">Want to add instructor feedback?</h3>
+                      <p className="text-gray-700 text-sm">
+                        You can review this submission and provide personalized feedback on top of the AI assessment.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    className="bg-sky-600 hover:bg-sky-700 rounded-xl whitespace-nowrap"
+                    asChild
+                  >
+                    <Link href={`/admin/manual-submissions/${submission.id}`}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Add Manual Review
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Instructor Manual Feedback (Optional Add-on) */}
+          {(submission as any).manualFeedback && (
+            <Card className="bg-gradient-to-r from-white to-sky-50 border-0 shadow-xl rounded-2xl">
+              <CardContent className="pt-8 pb-8">
+                <div className="text-center space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-center gap-3">
+                      {getRemarkIcon((submission as any).manualScore || '')}
+                      <Badge
+                        className={`text-lg px-6 py-2 ${getRemarkColor((submission as any).manualScore || '')}`}
+                      >
+                        {(submission as any).manualScore}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Instructor Feedback</p>
+                      <p className="text-lg font-semibold text-gray-900 mt-1">Reviewed by your instructor</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                    <div className="text-center space-y-2">
+                      <div className="flex items-center justify-center gap-2 text-gray-600">
+                        <Calendar className="h-4 w-4 text-sky-600" />
+                        <span className="text-sm font-medium">Submitted</span>
+                      </div>
+                      <div className="text-sm text-gray-700">
+                        {formatDistanceToNow(new Date(submission.createdAt), { addSuffix: true })}
+                      </div>
+                    </div>
+
+                    <div className="text-center space-y-2">
+                      <div className="flex items-center justify-center gap-2 text-gray-600">
+                        <CheckCircle2 className="h-4 w-4 text-sky-600" />
+                        <span className="text-sm font-medium">Reviewed</span>
+                      </div>
+                      <div className="text-sm text-gray-700">
+                        {(submission as any).reviewedAt && formatDistanceToNow(new Date((submission as any).reviewedAt), { addSuffix: true })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Manual Feedback Content */}
+          {(submission as any).manualFeedback && (
+            <Card className="rounded-2xl shadow-md">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-sky-600" />
+                    Instructor Feedback
+                  </CardTitle>
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl"
+                      asChild
+                    >
+                      <Link href={`/admin/manual-submissions/${submission.id}`}>
+                        <Edit className="mr-2 h-3 w-3" />
+                        Edit Review
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="prose max-w-none">
+                  <div className="p-4 bg-sky-50 rounded-lg border border-sky-200">
+                    <p className="text-gray-800 whitespace-pre-wrap">{(submission as any).manualFeedback}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Submission Details */}
           <Card className="rounded-2xl shadow-md">

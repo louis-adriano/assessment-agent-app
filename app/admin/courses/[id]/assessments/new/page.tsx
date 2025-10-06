@@ -164,40 +164,38 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="title" className="text-base font-medium">
-                      Assessment Title *
-                    </Label>
-                    <Input
-                      id="title"
-                      value={formData.title}
-                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                      placeholder="e.g., AI Tools Comparison Essay"
-                      required
-                      className="text-base"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="title" className="text-base font-medium">
+                    Assessment Title *
+                  </Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="e.g., AI Tools Comparison Essay"
+                    required
+                    className="text-base"
+                  />
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="submissionType" className="text-base font-medium">
-                      Submission Type *
-                    </Label>
-                    <select
-                      id="submissionType"
-                      value={formData.submissionType}
-                      onChange={(e) => setFormData(prev => ({ ...prev, submissionType: e.target.value }))}
-                      required
-                      className="w-full px-3 py-2 border border-input rounded-md text-base"
-                    >
-                      <option value="">Select submission type</option>
-                      <option value="TEXT">Text Response</option>
-                      <option value="DOCUMENT">Document Upload</option>
-                      <option value="GITHUB_REPO">GitHub Repository</option>
-                      <option value="WEBSITE">Website URL</option>
-                      <option value="SCREENSHOT">Screenshot/Visual</option>
-                    </select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="submissionType" className="text-base font-medium">
+                    Submission Type *
+                  </Label>
+                  <select
+                    id="submissionType"
+                    value={formData.submissionType}
+                    onChange={(e) => setFormData(prev => ({ ...prev, submissionType: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 border border-input rounded-md text-base"
+                  >
+                    <option value="">Select submission type</option>
+                    <option value="TEXT">Text Response</option>
+                    <option value="DOCUMENT">Document Upload</option>
+                    <option value="GITHUB_REPO">GitHub Repository</option>
+                    <option value="WEBSITE">Website URL</option>
+                    <option value="SCREENSHOT">Screenshot/Visual</option>
+                  </select>
                 </div>
 
                 <div className="space-y-2">

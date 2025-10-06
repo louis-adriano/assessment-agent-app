@@ -187,13 +187,20 @@ model BaseExample {
 model Submission {
   id                String           @id @default(cuid())
   questionId        String
-  userId            String?          // Nullable for anonymous submissions
+  userId            String?          // Nullable for anonymous submissions (automated mode only)
   submissionContent String?          @db.Text
   submissionUrl     String?
   fileUrl           String?
   status            SubmissionStatus @default(PENDING)
   assessmentResult  Json?            // Stores AI assessment results
   confidence        Float?
+
+  // Manual feedback fields
+  manualFeedback    String?          @db.Text
+  manualScore       String?          // e.g., "Pass", "Good", "Great", "Excellent"
+  reviewedBy        String?          // Admin user ID who reviewed
+  reviewedAt        DateTime?
+
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   processedAt       DateTime?
