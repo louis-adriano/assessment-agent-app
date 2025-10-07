@@ -5,7 +5,6 @@ import { getAnonymousSubmissionResult } from '@/lib/actions/submission-actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { useSession } from '@/lib/auth-client'
 import {
@@ -19,14 +18,15 @@ import {
   Upload,
   CheckCircle2,
   AlertCircle,
-  Target,
-  TrendingUp,
   Copy,
   ExternalLink,
-  Download,
   Share2,
   Loader2,
-  Edit
+  Edit,
+  User,
+  BookOpen,
+  TrendingUp,
+  LogIn
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
@@ -167,396 +167,344 @@ export default function ResultsPage({ params }: Props) {
     }
   }
 
+  const assessmentResult = submission.assessmentResult as any
+  const hasManualReview = !!(submission as any).manualFeedback
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Sidebar />
       <main className="flex-1 lg:pl-72">
-        <div className="px-6 py-12 md:px-12">
-          <div className="max-w-4xl mx-auto space-y-8">
-            {/* Navigation */}
+        <div className="px-6 py-8 md:px-12">
+          <div className="max-w-5xl mx-auto space-y-6">
+            {/* Header with Navigation */}
             <div className="flex items-center justify-between">
-              <Link href="/">
+              <Link href="/my-submissions">
                 <Button variant="outline" size="sm" className="rounded-xl">
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Home
+                  My Submissions
                 </Button>
               </Link>
-
               <div className="flex items-center gap-2">
-                <button
-                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl"
                   onClick={() => copyToClipboard(window.location.href)}
                 >
                   <Copy className="h-4 w-4 mr-2" />
                   Copy Link
-                </button>
-                <button
-                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50"
-                  onClick={shareResults}
-                >
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share
-                </button>
-              </div>
-            </div>
-
-            {/* Header */}
-            <div className="text-center space-y-4">
-              <h1 className="text-4xl font-bold text-gray-900">Assessment Results</h1>
-              <p className="text-gray-600">
-                Detailed feedback and analysis for your submission
-              </p>
-            </div>
-
-          {/* AI Assessment Results */}
-          {(submission.assessmentResult as any)?.remark && (
-          <Card className="bg-gradient-to-r from-white to-sky-50 border-0 shadow-xl rounded-2xl">
-            <CardContent className="pt-8 pb-8">
-              <div className="text-center space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-center gap-3">
-                    {getRemarkIcon((submission.assessmentResult as any)?.remark || '')}
-                    <Badge
-                      className={`text-lg px-6 py-2 ${getRemarkColor((submission.assessmentResult as any)?.remark || '')}`}
-                    >
-                      {(submission.assessmentResult as any)?.remark}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="text-5xl font-bold text-sky-600">
-                      {getRemarkScore((submission.assessmentResult as any)?.remark || '')}%
-                    </div>
-                    <p className="text-sm text-gray-600">AI Assessment Score</p>
-                    <div className="w-64 mx-auto h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-sky-500 to-sky-600 transition-all duration-500"
-                        style={{ width: `${getRemarkScore((submission.assessmentResult as any)?.remark || '')}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl mx-auto">
-                  <div className="text-center space-y-2">
-                    <div className="flex items-center justify-center gap-2 text-gray-600">
-                      <Calendar className="h-4 w-4 text-sky-600" />
-                      <span className="text-sm font-medium">Submitted</span>
-                    </div>
-                    <div className="text-sm text-gray-700">
-                      {formatDistanceToNow(new Date(submission.createdAt), { addSuffix: true })}
-                    </div>
-                  </div>
-
-                  <div className="text-center space-y-2">
-                    <div className="flex items-center justify-center gap-2 text-gray-600">
-                      <Clock className="h-4 w-4 text-sky-600" />
-                      <span className="text-sm font-medium">Processing Time</span>
-                    </div>
-                    <div className="text-sm text-gray-700">&lt; 5 seconds</div>
-                  </div>
-
-                  <div className="text-center space-y-2">
-                    <div className="flex items-center justify-center gap-2 text-gray-600">
-                      <span className="text-sky-600">{getSubmissionTypeIcon(submission.question.submissionType)}</span>
-                      <span className="text-sm font-medium">Type</span>
-                    </div>
-                    <div className="text-sm text-gray-700">{getSubmissionTypeLabel(submission.question.submissionType)}</div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          )}
-
-          {/* Admin: Add Manual Review Button */}
-          {isAdmin && !(submission as any).manualFeedback && (
-            <Card className="border-sky-200 bg-sky-50 rounded-2xl">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-sky-500 rounded-full flex items-center justify-center">
-                      <Edit className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg mb-1">Want to add instructor feedback?</h3>
-                      <p className="text-gray-700 text-sm">
-                        You can review this submission and provide personalized feedback on top of the AI assessment.
-                      </p>
-                    </div>
-                  </div>
+                </Button>
+                {isAdmin && (
                   <Button
-                    className="bg-sky-600 hover:bg-sky-700 rounded-xl whitespace-nowrap"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl"
                     asChild
                   >
                     <Link href={`/admin/manual-submissions/${submission.id}`}>
                       <Edit className="mr-2 h-4 w-4" />
-                      Add Manual Review
+                      {hasManualReview ? 'Edit Review' : 'Add Review'}
                     </Link>
                   </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Submission Info Header */}
+            <Card className="border-0 shadow-sm">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <BookOpen className="h-4 w-4" />
+                      {submission.question.course.name}
+                    </div>
+                    <h1 className="text-2xl font-bold text-gray-900">
+                      Question {submission.question.questionNumber}: {submission.question.title}
+                    </h1>
+                  </div>
+                  <Badge className={`${getRemarkColor(assessmentResult?.remark || '')} border`}>
+                    {assessmentResult?.remark || 'Processing'}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center gap-6 text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Submitted {formatDistanceToNow(new Date(submission.createdAt), { addSuffix: true })}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getSubmissionTypeIcon(submission.question.submissionType)}
+                    {getSubmissionTypeLabel(submission.question.submissionType)}
+                  </div>
+                  {submission.user && (
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      {submission.user.name || submission.user.email}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* Instructor Manual Feedback (Optional Add-on) */}
-          {(submission as any).manualFeedback && (
-            <Card className="bg-gradient-to-r from-white to-sky-50 border-0 shadow-xl rounded-2xl">
-              <CardContent className="pt-8 pb-8">
-                <div className="text-center space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-center gap-3">
-                      {getRemarkIcon((submission as any).manualScore || '')}
-                      <Badge
-                        className={`text-lg px-6 py-2 ${getRemarkColor((submission as any).manualScore || '')}`}
-                      >
-                        {(submission as any).manualScore}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Instructor Feedback</p>
-                      <p className="text-lg font-semibold text-gray-900 mt-1">Reviewed by your instructor</p>
-                    </div>
+            {/* Two Column Layout */}
+            <div className="grid lg:grid-cols-3 gap-6">
+              {/* Main Content - Left Side (2/3) */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* AI Assessment Score */}
+                {assessmentResult?.remark && (
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <TrendingUp className="h-5 w-5 text-teal-600" />
+                        AI Assessment
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-4xl font-bold text-teal-600">
+                            {getRemarkScore(assessmentResult.remark)}%
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">Assessment Score</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getRemarkIcon(assessmentResult.remark)}
+                          <span className="text-lg font-semibold">{assessmentResult.remark}</span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-teal-500 to-teal-600 transition-all duration-500"
+                          style={{ width: `${getRemarkScore(assessmentResult.remark)}%` }}
+                        />
+                      </div>
+
+                      {/* Feedback */}
+                      {assessmentResult.feedback && (
+                        <div className="mt-4 p-4 bg-teal-50 border-l-4 border-teal-600 rounded-r">
+                          <p className="text-gray-800 leading-relaxed">
+                            {assessmentResult.feedback}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Strengths & Areas to Improve */}
+                {assessmentResult?.criteriaMetAndBroke && (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {assessmentResult.criteriaMetAndBroke.criteriaMet?.length > 0 && (
+                      <Card className="border-green-200 bg-green-50">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base flex items-center gap-2 text-green-800">
+                            <CheckCircle2 className="h-5 w-5" />
+                            Strengths
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2">
+                            {assessmentResult.criteriaMetAndBroke.criteriaMet.map((criteria: string, index: number) => (
+                              <li key={index} className="flex items-start gap-2 text-sm">
+                                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                                <span className="text-gray-700">{criteria}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {assessmentResult.criteriaMetAndBroke.criteriaBroke?.length > 0 && (
+                      <Card className="border-orange-200 bg-orange-50">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base flex items-center gap-2 text-orange-800">
+                            <AlertCircle className="h-5 w-5" />
+                            Areas to Improve
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2">
+                            {assessmentResult.criteriaMetAndBroke.criteriaBroke.map((criteria: string, index: number) => (
+                              <li key={index} className="flex items-start gap-2 text-sm">
+                                <AlertCircle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                                <span className="text-gray-700">{criteria}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
+                )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
-                    <div className="text-center space-y-2">
-                      <div className="flex items-center justify-center gap-2 text-gray-600">
-                        <Calendar className="h-4 w-4 text-sky-600" />
-                        <span className="text-sm font-medium">Submitted</span>
+                {/* Instructor Feedback */}
+                {hasManualReview && (
+                  <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-lg">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <Edit className="h-5 w-5 text-emerald-600" />
+                          Instructor Review
+                        </CardTitle>
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">
+                          {(submission as any).manualScore}
+                        </Badge>
                       </div>
-                      <div className="text-sm text-gray-700">
-                        {formatDistanceToNow(new Date(submission.createdAt), { addSuffix: true })}
+                      <div className="text-sm text-gray-600 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        Reviewed {(submission as any).reviewedAt && formatDistanceToNow(new Date((submission as any).reviewedAt), { addSuffix: true })}
                       </div>
-                    </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="p-4 bg-white rounded-lg border border-emerald-200 max-h-96 overflow-y-auto">
+                        <p className="text-gray-800 whitespace-pre-wrap leading-relaxed break-words">
+                          {(submission as any).manualFeedback}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
 
-                    <div className="text-center space-y-2">
-                      <div className="flex items-center justify-center gap-2 text-gray-600">
-                        <CheckCircle2 className="h-4 w-4 text-sky-600" />
-                        <span className="text-sm font-medium">Reviewed</span>
-                      </div>
-                      <div className="text-sm text-gray-700">
-                        {(submission as any).reviewedAt && formatDistanceToNow(new Date((submission as any).reviewedAt), { addSuffix: true })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              {/* Sidebar - Right Side (1/3) */}
+              <div className="space-y-6">
+                {/* Instructor Review Status */}
+                {!isAdmin && (
+                  <Card className={hasManualReview ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-semibold">Instructor Review</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {hasManualReview ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-sm font-semibold text-emerald-900">Complete</div>
+                              <div className="text-xs text-emerald-700">
+                                {(submission as any).reviewedAt && formatDistanceToNow(new Date((submission as any).reviewedAt), { addSuffix: true })}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-t border-emerald-200">
+                            <div className="text-xs text-gray-600">See feedback below ↓</div>
+                          </div>
+                        </div>
+                      ) : submission.userId ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
+                              <Clock className="h-4 w-4 text-amber-600 animate-pulse" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-sm font-semibold text-amber-900">Pending Review</div>
+                              <div className="text-xs text-amber-700">In queue</div>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-600 leading-relaxed">
+                            Your instructor will review this submission. You'll receive a notification when feedback is available.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                            <AlertCircle className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <p className="text-xs text-blue-900">
+                              Sign in to receive personalized instructor feedback
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Button size="sm" className="bg-teal-600 hover:bg-teal-700 w-full" asChild>
+                              <Link href="/auth/signin">
+                                <LogIn className="mr-2 h-3 w-3" />
+                                Log In
+                              </Link>
+                            </Button>
+                            <Button size="sm" variant="outline" className="w-full" asChild>
+                              <Link href="/auth/signup">Sign Up</Link>
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
-          {/* Manual Feedback Content */}
-          {(submission as any).manualFeedback && (
-            <Card className="rounded-2xl shadow-md">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-sky-600" />
-                    Instructor Feedback
-                  </CardTitle>
-                  {isAdmin && (
+                {/* Your Submission */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Your Submission</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    {submission.submissionUrl && (
+                      <div>
+                        <div className="text-xs font-medium text-gray-600 mb-1">URL</div>
+                        <a
+                          href={submission.submissionUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-blue-600 hover:underline break-all"
+                        >
+                          <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                          <span className="text-xs">{submission.submissionUrl}</span>
+                        </a>
+                      </div>
+                    )}
+
+                    {submission.submissionContent && (
+                      <div>
+                        <div className="text-xs font-medium text-gray-600 mb-1">Content Preview</div>
+                        <div className="bg-gray-50 p-3 rounded text-xs max-h-32 overflow-y-auto">
+                          <pre className="whitespace-pre-wrap text-gray-700">
+                            {submission.submissionContent.substring(0, 200)}
+                            {submission.submissionContent.length > 200 && '...'}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Next Actions */}
+                <Card className="bg-teal-50 border-teal-200">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Next Steps</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Link
+                      href={`/submit?courseName=${encodeURIComponent(submission.question.course.name)}&assessmentNumber=${submission.question.questionNumber}`}
+                      className="block"
+                    >
+                      <Button variant="outline" size="sm" className="w-full justify-start">
+                        <TrendingUp className="mr-2 h-4 w-4" />
+                        Resubmit
+                      </Button>
+                    </Link>
+                    <Link href="/" className="block">
+                      <Button variant="outline" size="sm" className="w-full justify-start">
+                        <BookOpen className="mr-2 h-4 w-4" />
+                        Browse Courses
+                      </Button>
+                    </Link>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="rounded-xl"
-                      asChild
+                      className="w-full justify-start"
+                      onClick={shareResults}
                     >
-                      <Link href={`/admin/manual-submissions/${submission.id}`}>
-                        <Edit className="mr-2 h-3 w-3" />
-                        Edit Review
-                      </Link>
+                      <Share2 className="mr-2 h-4 w-4" />
+                      Share Results
                     </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="prose max-w-none">
-                  <div className="p-4 bg-sky-50 rounded-lg border border-sky-200">
-                    <p className="text-gray-800 whitespace-pre-wrap">{(submission as any).manualFeedback}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Submission Details */}
-          <Card className="rounded-2xl shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-teal-600" />
-                Submission Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <h4 className="font-semibold mb-2">Course</h4>
-                  <Badge variant="secondary" className="bg-teal-100 text-teal-700">{submission.question.course.name}</Badge>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">Assessment</h4>
-                  <div className="space-y-1">
-                    <div className="font-medium">#{submission.question.questionNumber}: {submission.question.title}</div>
-                    <div className="text-sm text-gray-600">{submission.question.description}</div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               </div>
-
-              {submission.submissionUrl && (
-                <div>
-                  <h4 className="font-semibold mb-2">Submitted Content</h4>
-                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                    <div className="flex items-center gap-2 text-sm font-mono">
-                      <ExternalLink className="h-4 w-4" />
-                      <a 
-                        href={submission.submissionUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline truncate"
-                      >
-                        {submission.submissionUrl}
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {submission.submissionContent && (
-                <div>
-                  <h4 className="font-semibold mb-2">Text Content</h4>
-                  <div className="bg-gray-50 p-4 rounded-lg max-h-32 overflow-y-auto">
-                    <pre className="text-sm whitespace-pre-wrap">{submission.submissionContent}</pre>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Detailed Feedback - MAIN FOCUS */}
-          <Card className="rounded-2xl shadow-xl border-2 border-teal-200">
-            <CardHeader className="bg-gradient-to-r from-teal-50 to-white pb-6">
-              <CardTitle className="flex items-center gap-3 text-2xl">
-                <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-white" />
-                </div>
-                AI Assessment & Feedback
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-8 pt-6">
-              {(submission.assessmentResult as any)?.feedback && (
-                <div>
-                  <h4 className="font-bold text-lg mb-4 text-gray-900">Overall Assessment</h4>
-                  <div className="bg-teal-50 border-l-4 border-teal-600 p-6 rounded-xl">
-                    <p className="text-gray-800 leading-relaxed text-base">
-                      {(submission.assessmentResult as any).feedback}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {(submission.assessmentResult as any)?.criteriaMetAndBroke && (
-                <div className="grid gap-6 md:grid-cols-2">
-                  {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaMet &&
-                   (submission.assessmentResult as any).criteriaMetAndBroke.criteriaMet.length > 0 && (
-                    <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
-                      <h4 className="font-bold text-lg mb-4 text-green-800 flex items-center gap-2">
-                        <CheckCircle2 className="h-6 w-6" />
-                        Strengths
-                      </h4>
-                      <ul className="space-y-3">
-                        {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaMet.map((criteria: string, index: number) => (
-                          <li key={index} className="flex items-start gap-3">
-                            <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                            <span className="text-gray-700">{criteria}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaBroke &&
-                   (submission.assessmentResult as any).criteriaMetAndBroke.criteriaBroke.length > 0 && (
-                    <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
-                      <h4 className="font-bold text-lg mb-4 text-orange-800 flex items-center gap-2">
-                        <AlertCircle className="h-6 w-6" />
-                        Areas to Improve
-                      </h4>
-                      <ul className="space-y-3">
-                        {(submission.assessmentResult as any).criteriaMetAndBroke.criteriaBroke.map((criteria: string, index: number) => (
-                          <li key={index} className="flex items-start gap-3">
-                            <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
-                            <span className="text-gray-700">{criteria}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Next Steps */}
-          <Card className="bg-gradient-to-r from-teal-50 to-teal-100 border-teal-200 rounded-2xl shadow-md">
-            <CardHeader>
-              <CardTitle className="text-gray-900">What's Next?</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <Link
-                  href="/"
-                  className="bg-white border-2 border-teal-200 rounded-xl p-6 hover:border-teal-400 hover:shadow-md transition-all group"
-                >
-                  <div className="flex flex-col items-start space-y-3">
-                    <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center group-hover:bg-teal-200 transition-colors">
-                      <Upload className="h-6 w-6 text-teal-600" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900 mb-1">Try Another Assessment</div>
-                      <div className="text-sm text-gray-600">Submit different work for feedback</div>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link
-                  href={`/submit?courseName=${encodeURIComponent(submission.question.course.name)}&assessmentNumber=${submission.question.questionNumber}`}
-                  className="bg-white border-2 border-teal-200 rounded-xl p-6 hover:border-teal-400 hover:shadow-md transition-all group"
-                >
-                  <div className="flex flex-col items-start space-y-3">
-                    <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center group-hover:bg-teal-200 transition-colors">
-                      <TrendingUp className="h-6 w-6 text-teal-600" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900 mb-1">Resubmit Improved Work</div>
-                      <div className="text-sm text-gray-600">Apply feedback and try again</div>
-                    </div>
-                  </div>
-                </Link>
-
-                <button
-                  onClick={shareResults}
-                  className="bg-white border-2 border-teal-200 rounded-xl p-6 hover:border-teal-400 hover:shadow-md transition-all group text-left"
-                >
-                  <div className="flex flex-col items-start space-y-3">
-                    <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center group-hover:bg-teal-200 transition-colors">
-                      <Share2 className="h-6 w-6 text-teal-600" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900 mb-1">Share Results</div>
-                      <div className="text-sm text-gray-600">Show your progress to others</div>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Footer Info */}
-          <div className="text-center text-sm text-gray-500">
-            <p>Assessment ID: {submission.id}</p>
-            <p className="mt-1">Results are stored for your reference and can be accessed anytime with this link</p>
-          </div>
+            </div>
           </div>
         </div>
       </main>

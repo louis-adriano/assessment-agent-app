@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { BookOpen, GraduationCap, LayoutDashboard, User, LogOut, Shield } from 'lucide-react'
+import { BookOpen, GraduationCap, LayoutDashboard, User, LogOut, Shield, FileText } from 'lucide-react'
 import { useSession, signOut } from '@/lib/auth-client'
 import { Badge } from '@/components/ui/badge'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
@@ -66,6 +66,17 @@ export function Sidebar() {
           >
             <BookOpen className="mr-3 h-5 w-5" />
             Courses
+          </Link>
+          <Link
+            href="/my-submissions"
+            className={`flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
+              pathname === '/my-submissions'
+                ? 'bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-lg shadow-teal-500/30'
+                : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+            }`}
+          >
+            <FileText className="mr-3 h-5 w-5" />
+            My Submissions
           </Link>
           {user?.role && (user.role === 'SUPER_ADMIN' || user.role === 'COURSE_ADMIN') && (
             <Link
