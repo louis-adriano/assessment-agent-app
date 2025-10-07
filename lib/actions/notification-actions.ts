@@ -177,8 +177,8 @@ export async function notifyManualReview(submissionId: string) {
       submission.userId,
       submissionId,
       'MANUAL_REVIEW',
-      'Manual Review Received',
-      `Your submission for ${courseName} - Question ${questionNumber} has been manually reviewed by an instructor.`
+      'Instructor Review Received',
+      `Your submission for ${courseName} - Question ${questionNumber} has been reviewed by an instructor.`
     )
 
     return { success: true }

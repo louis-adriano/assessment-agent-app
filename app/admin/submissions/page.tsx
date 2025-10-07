@@ -751,7 +751,7 @@ export default function SubmissionsPage() {
                       <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded text-sm">
                         <div className="flex items-center gap-2 mb-1">
                           <FileEdit className="h-4 w-4 text-emerald-600" />
-                          <span className="font-medium text-emerald-900">Manual Review</span>
+                          <span className="font-medium text-emerald-900">Instructor Review</span>
                           {submission.manualScore && (
                             <Badge variant="outline" className="text-xs">
                               Score: {submission.manualScore}
@@ -891,7 +891,7 @@ export default function SubmissionsPage() {
                         <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded text-sm">
                           <div className="flex items-center gap-2 mb-1">
                             <FileEdit className="h-4 w-4 text-emerald-600" />
-                            <span className="font-medium text-emerald-900">Manual Review</span>
+                            <span className="font-medium text-emerald-900">Instructor Review</span>
                             {submission.manualScore && (
                               <Badge variant="outline" className="text-xs">
                                 Score: {submission.manualScore}

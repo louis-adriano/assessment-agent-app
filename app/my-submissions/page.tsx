@@ -307,7 +307,7 @@ export default function MySubmissionsPage() {
                                 </span>
                                 {submission.reviewedAt && (
                                   <span className="text-emerald-600 font-medium">
-                                    Manual review added
+                                    Instructor review added
                                   </span>
                                 )}
                               </div>
