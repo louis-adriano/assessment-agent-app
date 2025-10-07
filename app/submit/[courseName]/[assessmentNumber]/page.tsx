@@ -226,24 +226,82 @@ onChange={(e) => handleGitHubUrlChange(e.target.value)}
         return (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="document-content">Document Content or URL</Label>
-              <Textarea
-                id="document-content"
-                placeholder="Paste your document content here or provide a link to your document..."
-                value={submissionContent}
-                onChange={(e) => setSubmissionContent(e.target.value)}
-                rows={8}
-                className="min-h-[200px]"
-              />
+              <Label>Submit Your Document</Label>
+              <div className="mt-2 space-y-3">
+                {/* File Upload Option */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                  <Input
+                    id="document-file"
+                    type="file"
+                    accept=".docx,.txt"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSubmitting(true);
+                        try {
+                          const formData = new FormData();
+                          formData.append('file', file);
+
+                          const response = await fetch('/api/documents/upload', {
+                            method: 'POST',
+                            body: formData,
+                          });
+
+                          const result = await response.json();
+                          if (result.success) {
+                            // Set the file URL as submission content
+                            setSubmissionContent(result.data.fileUrl);
+                            alert(`Document uploaded successfully! ${result.data.metadata.wordCount} words extracted.`);
+                          } else {
+                            setError(result.error || 'Upload failed');
+                          }
+                        } catch (err) {
+                          setError('Failed to upload document');
+                        } finally {
+                          setSubmitting(false);
+                        }
+                      }
+                    }}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-sm text-gray-500 mt-2">
+                    Upload DOCX or TXT (Max 10MB)
+                  </p>
+                </div>
+
+                {/* OR Divider */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">OR</span>
+                  </div>
+                </div>
+
+                {/* Text/URL Option */}
+                <div>
+                  <Label htmlFor="document-content">Paste Document Content or URL</Label>
+                  <Textarea
+                    id="document-content"
+                    placeholder="Paste your document content here or provide a URL to your document..."
+                    value={submissionContent}
+                    onChange={(e) => setSubmissionContent(e.target.value)}
+                    rows={6}
+                    className="min-h-[150px]"
+                  />
+                </div>
+              </div>
             </div>
-            
+
             <div className="bg-yellow-50 p-4 rounded-lg">
               <h4 className="font-medium text-yellow-900 mb-2">Document Requirements:</h4>
               <ul className="text-sm text-yellow-800 space-y-1">
+                <li>• Supported formats: DOCX, TXT</li>
+                <li>• Maximum file size: 10MB</li>
                 <li>• Document should be well-structured and formatted</li>
                 <li>• Include all required sections as specified</li>
                 <li>• Use proper grammar and professional language</li>
-                <li>• Support your arguments with evidence where needed</li>
               </ul>
             </div>
           </div>
@@ -253,23 +311,80 @@ onChange={(e) => handleGitHubUrlChange(e.target.value)}
         return (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="screenshot-url">Screenshot/Image URL or Description</Label>
-              <Textarea
-                id="screenshot-url"
-                placeholder="Provide URL to your screenshot or describe your visual submission..."
-                value={submissionContent}
-                onChange={(e) => setSubmissionContent(e.target.value)}
-                rows={6}
-              />
+              <Label>Submit Your Screenshot</Label>
+              <div className="mt-2 space-y-3">
+                {/* File Upload Option */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                  <Input
+                    id="screenshot-file"
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSubmitting(true);
+                        try {
+                          const formData = new FormData();
+                          formData.append('file', file);
+
+                          const response = await fetch('/api/screenshots/upload', {
+                            method: 'POST',
+                            body: formData,
+                          });
+
+                          const result = await response.json();
+                          if (result.success) {
+                            setSubmissionContent(result.data.imageUrl);
+                            alert(`Screenshot uploaded successfully! ${result.data.metadata.width}x${result.data.metadata.height}`);
+                          } else {
+                            setError(result.error || 'Upload failed');
+                          }
+                        } catch (err) {
+                          setError('Failed to upload screenshot');
+                        } finally {
+                          setSubmitting(false);
+                        }
+                      }
+                    }}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-sm text-gray-500 mt-2">
+                    Upload PNG, JPEG, GIF, or WebP (Max 5MB)
+                  </p>
+                </div>
+
+                {/* OR Divider */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">OR</span>
+                  </div>
+                </div>
+
+                {/* URL/Description Option */}
+                <div>
+                  <Label htmlFor="screenshot-url">Image URL or Description</Label>
+                  <Textarea
+                    id="screenshot-url"
+                    placeholder="Provide URL to your screenshot or describe your visual submission..."
+                    value={submissionContent}
+                    onChange={(e) => setSubmissionContent(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+              </div>
             </div>
-            
+
             <div className="bg-purple-50 p-4 rounded-lg">
               <h4 className="font-medium text-purple-900 mb-2">Screenshot/Visual Requirements:</h4>
               <ul className="text-sm text-purple-800 space-y-1">
+                <li>• Supported formats: PNG, JPEG, GIF, WebP</li>
+                <li>• Maximum file size: 5MB</li>
                 <li>• Image should be clear and high quality</li>
                 <li>• Include all required visual elements</li>
                 <li>• Annotate or explain key features if needed</li>
-                <li>• Follow design principles and requirements</li>
               </ul>
             </div>
           </div>

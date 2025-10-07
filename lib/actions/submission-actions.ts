@@ -7,6 +7,9 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { processAnonymousAssessment } from '@/lib/services/assessment-service'
 import { githubService } from '@/lib/services/github-service'
+import { documentService } from '@/lib/services/document-service'
+import { websiteService } from '@/lib/services/website-service'
+import { screenshotService } from '@/lib/services/screenshot-service'
 import { getCourseByName } from './lookup-actions'
 import { sanitizeObject, sanitizeTextContent } from '@/lib/utils/sanitization'
 // import { SubmissionType, SubmissionStatus } from '@prisma/client'
@@ -196,12 +199,22 @@ export async function submitAssessment(
     try {
       if (question.submissionType === 'GITHUB_REPO') {
         console.log('🔍 Starting GitHub assessment...');
-        // Use specialized GitHub assessment
         assessmentResult = await assessGitHubRepository(content, question, submission.id);
         console.log('✅ GitHub assessment completed');
+      } else if (question.submissionType === 'DOCUMENT') {
+        console.log('📄 Starting document assessment...');
+        assessmentResult = await assessDocument(content, question, submission.id);
+        console.log('✅ Document assessment completed');
+      } else if (question.submissionType === 'WEBSITE') {
+        console.log('🌐 Starting website assessment...');
+        assessmentResult = await assessWebsite(content, question, submission.id);
+        console.log('✅ Website assessment completed');
+      } else if (question.submissionType === 'SCREENSHOT') {
+        console.log('📸 Starting screenshot assessment...');
+        assessmentResult = await assessScreenshot(content, question, submission.id);
+        console.log('✅ Screenshot assessment completed');
       } else {
         console.log('🔍 Starting regular assessment...');
-        // Use regular assessment service
         assessmentResult = await processAnonymousAssessment({
           submissionId: submission.id,
           questionId: question.id,
@@ -392,6 +405,362 @@ Provide specific examples from the code when pointing out strengths or areas for
       confidence: 0.1,
       processing_time_ms: 0,
       model_used: 'github-fallback',
+    };
+  }
+}
+
+/**
+ * Specialized document assessment with text extraction and comparison
+ */
+async function assessDocument(fileUrlOrContent: string, question: any, submissionId: string) {
+  console.log('📄 Assessing document submission...');
+
+  try {
+    let documentContent: string;
+    let documentMetadata: any;
+
+    // Check if it's a Vercel Blob URL or direct content
+    if (fileUrlOrContent.startsWith('http')) {
+      // It's a file URL - fetch and process it
+      console.log('📥 Fetching document from URL:', fileUrlOrContent);
+
+      try {
+        const documentInfo = await documentService.processDocumentFromUrl(fileUrlOrContent);
+        documentContent = documentInfo.content;
+        documentMetadata = documentInfo.metadata;
+
+        console.log('📊 Document processed:', {
+          wordCount: documentMetadata.wordCount,
+          pageCount: documentMetadata.pageCount,
+          fileType: documentMetadata.fileType
+        });
+      } catch (error) {
+        console.warn('⚠️ Could not fetch document from URL, treating as text content');
+        documentContent = fileUrlOrContent;
+        documentMetadata = null;
+      }
+    } else {
+      // It's direct text content
+      documentContent = fileUrlOrContent;
+      documentMetadata = {
+        wordCount: documentService['countWords'](documentContent),
+        pageCount: documentService['estimatePageCount'](documentContent),
+        fileType: 'text/plain'
+      };
+    }
+
+    // Create enhanced prompt for document assessment
+    const documentPrompt = `
+You are assessing a document submission for the following assignment:
+
+${question.title}
+
+${question.description}
+
+${question.criteria && question.criteria.length > 0 ? `
+GRADING CRITERIA:
+${question.criteria.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n')}
+` : ''}
+
+${question.redFlags && question.redFlags.length > 0 ? `
+RED FLAGS TO CHECK:
+${question.redFlags.map((r: string, i: number) => `${i + 1}. ${r}`).join('\n')}
+` : ''}
+
+---
+
+STUDENT'S DOCUMENT SUBMISSION:
+
+${documentMetadata ? `
+Document Metadata:
+- Word Count: ${documentMetadata.wordCount} words
+- Estimated Pages: ${documentMetadata.pageCount || 'N/A'}
+- File Type: ${documentMetadata.fileType}
+
+` : ''}
+
+Document Content:
+${documentContent.substring(0, 8000)}${documentContent.length > 8000 ? '\n\n[Content truncated for length...]' : ''}
+
+---
+
+Please provide a comprehensive assessment of this document focusing on:
+1. Content quality and depth
+2. Structure and organization
+3. Writing clarity and professionalism
+4. Whether it meets the assignment requirements
+5. Adherence to any word count or formatting requirements
+
+${question.baseExamples && question.baseExamples.length > 0 ? `
+Compare this submission with the following base example characteristics:
+${question.baseExamples[0].description || 'Reference standard provided'}
+` : ''}
+
+Provide specific feedback on strengths and areas for improvement.
+    `;
+
+    // Get AI assessment with document-specific prompt
+    const assessment = await processAnonymousAssessment({
+      submissionId: submissionId,
+      questionId: question.id,
+      submissionContent: documentPrompt,
+      question: question,
+    });
+
+    // Enhance feedback with document-specific insights
+    const enhancedFeedback = documentMetadata ? `${assessment.feedback}
+
+---
+
+**Document Analysis Summary:**
+- **Word Count:** ${documentMetadata.wordCount} words
+- **Estimated Pages:** ${documentMetadata.pageCount || 'N/A'}
+- **File Type:** ${documentMetadata.fileType}
+- **Content Length:** ${documentContent.length > 5000 ? 'Comprehensive' : documentContent.length > 2000 ? 'Moderate' : 'Brief'}` : assessment.feedback;
+
+    return {
+      ...assessment,
+      feedback: enhancedFeedback,
+      metadata: {
+        document: documentMetadata,
+        contentLength: documentContent.length,
+        processingMethod: fileUrlOrContent.startsWith('http') ? 'url-fetch' : 'direct-content'
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ Document assessment failed:', error);
+
+    // Return fallback assessment for document errors
+    return {
+      remark: 'Needs Improvement',
+      feedback: `Document assessment failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please ensure the document is accessible and in a supported format (PDF, DOCX, TXT).`,
+      criteria_met: [],
+      areas_for_improvement: ['Document accessibility', 'Format validation'],
+      confidence: 0.1,
+      processing_time_ms: 0,
+      model_used: 'document-fallback',
+    };
+  }
+}
+
+/**
+ * Specialized website assessment with accessibility and functionality testing
+ */
+async function assessWebsite(websiteUrl: string, question: any, submissionId: string) {
+  console.log('🌐 Assessing website submission...');
+
+  try {
+    // Test website accessibility and functionality
+    const assessmentData = await websiteService.assessWebsite(websiteUrl);
+    const websiteSummary = websiteService.generateWebsiteSummary(assessmentData);
+
+    console.log('📊 Website tested:', {
+      url: assessmentData.websiteInfo.url,
+      accessible: assessmentData.websiteInfo.isAccessible,
+      issues: assessmentData.issues.length,
+      strengths: assessmentData.strengths.length
+    });
+
+    // Create enhanced prompt for website assessment
+    const websitePrompt = `
+You are assessing a website submission for the following assignment:
+
+${question.title}
+
+${question.description}
+
+${question.criteria && question.criteria.length > 0 ? `
+GRADING CRITERIA:
+${question.criteria.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n')}
+` : ''}
+
+${question.redFlags && question.redFlags.length > 0 ? `
+RED FLAGS TO CHECK:
+${question.redFlags.map((r: string, i: number) => `${i + 1}. ${r}`).join('\n')}
+` : ''}
+
+---
+
+STUDENT'S WEBSITE SUBMISSION:
+
+${websiteSummary}
+
+---
+
+Please provide a comprehensive assessment of this website focusing on:
+1. Accessibility and functionality
+2. Design and user experience
+3. Technical implementation (HTTPS, performance, metadata)
+4. Whether it meets the assignment requirements
+5. Overall professionalism and completeness
+
+Provide specific feedback based on the technical analysis above.
+    `;
+
+    // Get AI assessment
+    const assessment = await processAnonymousAssessment({
+      submissionId: submissionId,
+      questionId: question.id,
+      submissionContent: websitePrompt,
+      question: question,
+    });
+
+    // Enhance feedback with website-specific insights
+    const enhancedFeedback = `${assessment.feedback}
+
+---
+
+**Website Assessment Summary:**
+- **URL:** ${assessmentData.websiteInfo.url}
+- **Accessibility:** ${assessmentData.websiteInfo.isAccessible ? '✓ Accessible' : '✗ Not Accessible'}
+- **Protocol:** ${assessmentData.websiteInfo.metadata?.hasHttps ? 'HTTPS ✓' : 'HTTP'}
+- **Response Time:** ${assessmentData.websiteInfo.responseTime ? `${assessmentData.websiteInfo.responseTime}ms` : 'N/A'}
+- **Issues Found:** ${assessmentData.issues.length}
+- **Strengths:** ${assessmentData.strengths.length}`;
+
+    return {
+      ...assessment,
+      feedback: enhancedFeedback,
+      metadata: {
+        website: assessmentData.websiteInfo,
+        issues: assessmentData.issues,
+        strengths: assessmentData.strengths,
+        recommendations: assessmentData.recommendations,
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ Website assessment failed:', error);
+
+    return {
+      remark: 'Needs Improvement',
+      feedback: `Website assessment failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please ensure the website URL is valid and publicly accessible.`,
+      criteria_met: [],
+      areas_for_improvement: ['Website accessibility', 'URL validation'],
+      confidence: 0.1,
+      processing_time_ms: 0,
+      model_used: 'website-fallback',
+    };
+  }
+}
+
+/**
+ * Specialized screenshot assessment with visual analysis
+ */
+async function assessScreenshot(screenshotUrlOrDescription: string, question: any, submissionId: string) {
+  console.log('📸 Assessing screenshot submission...');
+
+  try {
+    let screenshotInfo = null;
+    let isImageUrl = false;
+
+    // Check if it's an image URL
+    if (screenshotUrlOrDescription.startsWith('http')) {
+      isImageUrl = screenshotService.isImageUrl(screenshotUrlOrDescription);
+
+      if (isImageUrl) {
+        try {
+          // Try to process as screenshot URL
+          screenshotInfo = await screenshotService.processScreenshotFromUrl(
+            screenshotUrlOrDescription,
+            { submissionId }
+          );
+          console.log('📊 Screenshot processed:', {
+            url: screenshotInfo.imageUrl,
+            size: screenshotInfo.metadata.fileSize,
+            dimensions: `${screenshotInfo.metadata.width}x${screenshotInfo.metadata.height}`
+          });
+        } catch (error) {
+          console.warn('⚠️ Could not process image URL, treating as description');
+        }
+      }
+    }
+
+    // Create assessment prompt
+    const screenshotPrompt = `
+You are assessing a screenshot/visual submission for the following assignment:
+
+${question.title}
+
+${question.description}
+
+${question.criteria && question.criteria.length > 0 ? `
+GRADING CRITERIA:
+${question.criteria.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n')}
+` : ''}
+
+${question.redFlags && question.redFlags.length > 0 ? `
+RED FLAGS TO CHECK:
+${question.redFlags.map((r: string, i: number) => `${i + 1}. ${r}`).join('\n')}
+` : ''}
+
+---
+
+STUDENT'S SCREENSHOT SUBMISSION:
+
+${screenshotInfo ? `
+Screenshot Details:
+- Image URL: ${screenshotInfo.imageUrl}
+- Dimensions: ${screenshotInfo.metadata.width}x${screenshotInfo.metadata.height}
+- File Size: ${(screenshotInfo.metadata.fileSize / 1024).toFixed(2)} KB
+- Format: ${screenshotInfo.metadata.fileType}
+` : `
+Screenshot Description/URL:
+${screenshotUrlOrDescription}
+`}
+
+---
+
+Please provide a comprehensive assessment of this visual submission focusing on:
+1. Visual design and aesthetics
+2. Layout and composition
+3. Whether it demonstrates the required functionality
+4. Adherence to design principles
+5. Overall quality and professionalism
+
+${!screenshotInfo ? 'Note: The submission is a URL or description. Assess based on the provided information.' : 'Note: Analyze based on the screenshot metadata and description provided.'}
+    `;
+
+    // Get AI assessment
+    const assessment = await processAnonymousAssessment({
+      submissionId: submissionId,
+      questionId: question.id,
+      submissionContent: screenshotPrompt,
+      question: question,
+    });
+
+    // Enhance feedback
+    const enhancedFeedback = screenshotInfo ? `${assessment.feedback}
+
+---
+
+**Screenshot Analysis:**
+- **Image URL:** [View Screenshot](${screenshotInfo.imageUrl})
+- **Dimensions:** ${screenshotInfo.metadata.width}x${screenshotInfo.metadata.height}
+- **File Size:** ${(screenshotInfo.metadata.fileSize / 1024).toFixed(2)} KB
+- **Format:** ${screenshotInfo.metadata.fileType}` : assessment.feedback;
+
+    return {
+      ...assessment,
+      feedback: enhancedFeedback,
+      metadata: {
+        screenshot: screenshotInfo,
+        isImageUrl,
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ Screenshot assessment failed:', error);
+
+    return {
+      remark: 'Needs Improvement',
+      feedback: `Screenshot assessment failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please ensure you provide a valid image URL or detailed description.`,
+      criteria_met: [],
+      areas_for_improvement: ['Screenshot accessibility', 'Format validation'],
+      confidence: 0.1,
+      processing_time_ms: 0,
+      model_used: 'screenshot-fallback',
     };
   }
 }
@@ -638,6 +1007,18 @@ async function submitAssessmentWithUser(
         console.log('🔍 Starting GitHub assessment...');
         assessmentResult = await assessGitHubRepository(content, question, submission.id);
         console.log('✅ GitHub assessment completed');
+      } else if (question.submissionType === 'DOCUMENT') {
+        console.log('📄 Starting document assessment...');
+        assessmentResult = await assessDocument(content, question, submission.id);
+        console.log('✅ Document assessment completed');
+      } else if (question.submissionType === 'WEBSITE') {
+        console.log('🌐 Starting website assessment...');
+        assessmentResult = await assessWebsite(content, question, submission.id);
+        console.log('✅ Website assessment completed');
+      } else if (question.submissionType === 'SCREENSHOT') {
+        console.log('📸 Starting screenshot assessment...');
+        assessmentResult = await assessScreenshot(content, question, submission.id);
+        console.log('✅ Screenshot assessment completed');
       } else {
         console.log('🔍 Starting regular assessment...');
         assessmentResult = await processAnonymousAssessment({
