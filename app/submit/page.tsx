@@ -170,7 +170,13 @@ function SubmitPageContent() {
       }
 
       // Submit assessment (AI will grade automatically)
-      const result = await submitAnonymousAssessment(formData)
+      // If user is logged in, save their info with the submission
+      let result;
+      if (session?.user?.id) {
+        result = await submitAuthenticatedAssessment(formData, session.user.id)
+      } else {
+        result = await submitAnonymousAssessment(formData)
+      }
 
       if (result.success && result.submissionId) {
         setSuccess('Assessment completed successfully!')

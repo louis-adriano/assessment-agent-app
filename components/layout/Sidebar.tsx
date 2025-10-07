@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { BookOpen, GraduationCap, LayoutDashboard, User, LogOut, Shield } from 'lucide-react'
 import { useSession, signOut } from '@/lib/auth-client'
 import { Badge } from '@/components/ui/badge'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 
 interface UserWithRole {
   id: string
@@ -34,10 +35,13 @@ export function Sidebar() {
           <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
             <GraduationCap className="h-6 w-6 text-white" />
           </div>
-          <div className="ml-3">
+          <div className="ml-3 flex-1">
             <span className="text-xl font-bold text-white">Assessment</span>
             <span className="text-sm text-gray-400 block">Portal</span>
           </div>
+          {user && (
+            <NotificationBell userId={user.id} />
+          )}
         </div>
 
         <nav className="mt-8 flex-1 px-4 space-y-2">

@@ -478,7 +478,7 @@ export async function submitAnonymousAssessment(formData: FormData): Promise<Act
 }
 
 /**
- * Submit assessment with authentication (for manual feedback mode)
+ * Submit assessment with authentication (saves user info + runs AI assessment)
  */
 export async function submitAuthenticatedAssessment(formData: FormData, userId: string): Promise<ActionResult> {
   const courseName = formData.get('courseName') as string;
@@ -502,21 +502,190 @@ export async function submitAuthenticatedAssessment(formData: FormData, userId: 
     return { success: false, error: `Assessment #${assessmentNumber} not found` };
   }
 
-  // Sanitize content
-  const sanitizedContent = sanitizeTextContent(submissionContent || '');
+  // Use the regular submitAssessment but with userId
+  // This will run AI assessment AND save the user's info
+  return await submitAssessmentWithUser(
+    courseName,
+    assessmentNumber,
+    question.submissionType,
+    submissionContent,
+    userId
+  );
+}
 
+/**
+ * Internal function: Submit assessment with optional userId
+ */
+async function submitAssessmentWithUser(
+  courseName: string,
+  questionNumber: number,
+  submissionType: string,
+  content: string,
+  userId?: string,
+  additionalInfo?: string
+): Promise<ActionResult> {
   try {
-    // Create submission with userId for manual feedback
+    console.log('📝 Starting submission:', { courseName, questionNumber, submissionType, hasUserId: !!userId });
+
+    // Validate input with enhanced schema
+    const validation = submissionSchema.safeParse({
+      courseName,
+      questionNumber,
+      submissionType,
+      content,
+      additionalInfo,
+    });
+
+    if (!validation.success) {
+      const errorMessage = validation.error.errors[0]?.message || 'Validation failed';
+      console.error('❌ Validation failed:', validation.error.errors);
+      return { success: false, error: errorMessage };
+    }
+
+    // Find course by name
+    const course = await prisma.course.findFirst({
+      where: {
+        name: {
+          equals: courseName,
+          mode: 'insensitive'
+        }
+      },
+      include: {
+        questions: {
+          where: {
+            questionNumber: questionNumber,
+            isActive: true
+          }
+        }
+      }
+    });
+
+    if (!course || course.questions.length === 0) {
+      return { success: false, error: `Question ${questionNumber} not found in course "${courseName}"` };
+    }
+
+    const question = course.questions[0];
+
+    // Validate submission type matches question
+    if (question.submissionType !== submissionType) {
+      return {
+        success: false,
+        error: `Question expects ${question.submissionType} submission, but received ${submissionType}`
+      };
+    }
+
+    // For GitHub repos, validate URL before creating submission
+    if (question.submissionType === 'GITHUB_REPO') {
+      console.log('🔍 Validating GitHub URL:', content);
+
+      let cleanUrl = content.trim();
+      if (!cleanUrl.startsWith('http')) {
+        cleanUrl = `https://${cleanUrl}`;
+      }
+
+      if (!githubService.isValidGitHubUrl(cleanUrl)) {
+        return {
+          success: false,
+          error: 'Invalid GitHub repository URL. Please provide a valid GitHub repository link.'
+        };
+      }
+
+      try {
+        const parsed = githubService.parseGitHubUrl(cleanUrl);
+        if (!parsed) {
+          return {
+            success: false,
+            error: 'Could not parse GitHub repository URL. Please check the format.'
+          };
+        }
+        console.log('✅ GitHub URL parsed successfully:', parsed);
+      } catch (error) {
+        console.error('❌ GitHub URL parsing failed:', error);
+        return {
+          success: false,
+          error: 'Failed to validate GitHub repository URL.'
+        };
+      }
+
+      content = sanitizeTextContent(content);
+      console.log('🧹 Content sanitized for database safety');
+    }
+
+    const finalContent = additionalInfo
+      ? `${content}\n\nAdditional Notes:\n${additionalInfo}`
+      : content;
+
+    const sanitizedContent = sanitizeTextContent(finalContent);
+
+    // Create submission record with optional userId
     const submission = await prisma.submission.create({
       data: {
         questionId: question.id,
-        userId: userId, // Required for manual feedback
+        userId: userId || null, // Save user ID if provided
         submissionContent: sanitizedContent,
-        status: 'PENDING', // Pending manual review
+        status: 'PROCESSING',
+        assessmentResult: undefined,
       },
     });
 
-    console.log('📝 Authenticated submission created:', submission.id);
+    console.log('📝 Submission created:', submission.id, 'with userId:', userId || 'anonymous');
+
+    // Perform AI assessment
+    let assessmentResult;
+
+    try {
+      if (question.submissionType === 'GITHUB_REPO') {
+        console.log('🔍 Starting GitHub assessment...');
+        assessmentResult = await assessGitHubRepository(content, question, submission.id);
+        console.log('✅ GitHub assessment completed');
+      } else {
+        console.log('🔍 Starting regular assessment...');
+        assessmentResult = await processAnonymousAssessment({
+          submissionId: submission.id,
+          questionId: question.id,
+          submissionContent: finalContent,
+          question: question,
+        });
+        console.log('✅ Regular assessment completed');
+      }
+
+      const sanitizedAssessmentResult = sanitizeObject(assessmentResult);
+      console.log('🛡️ Final assessment result sanitized');
+
+      // Update submission with assessment results
+      await prisma.submission.update({
+        where: { id: submission.id },
+        data: {
+          status: 'COMPLETED',
+          assessmentResult: sanitizedAssessmentResult as any,
+          processedAt: new Date(),
+        },
+      });
+
+      console.log('✅ Assessment saved to database');
+
+    } catch (assessmentError) {
+      console.error('❌ Assessment failed:', assessmentError);
+
+      const errorMessage = assessmentError instanceof Error ? assessmentError.message : 'Unknown error';
+      const sanitizedErrorMessage = sanitizeTextContent(errorMessage);
+
+      await prisma.submission.update({
+        where: { id: submission.id },
+        data: {
+          status: 'FAILED',
+          assessmentResult: {
+            remark: 'Needs Improvement',
+            feedback: `Assessment failed: ${sanitizedErrorMessage}`,
+            criteria_met: [],
+            areas_for_improvement: ['Submission processing'],
+            confidence: 0.1,
+            processing_time_ms: 0,
+            model_used: 'error-handler',
+          },
+        },
+      });
+    }
 
     revalidatePath(`/results/${submission.id}`);
     return {
@@ -526,7 +695,7 @@ export async function submitAuthenticatedAssessment(formData: FormData, userId: 
     };
 
   } catch (error) {
-    console.error('❌ Authenticated submission error:', error);
+    console.error('❌ Submission error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to submit assessment',

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/auth/utils'
 import { UserRole } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
+import { notifyManualReview } from './notification-actions'
 
 type ActionResult<T = any> = {
   success: boolean
@@ -237,6 +238,11 @@ export async function submitManualFeedback(
         processedAt: new Date()
       }
     })
+
+    // Notify student if they have an account
+    if (submission.userId) {
+      await notifyManualReview(submissionId)
+    }
 
     revalidatePath('/admin/submissions')
     revalidatePath(`/results/${submissionId}`)
