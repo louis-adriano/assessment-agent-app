@@ -73,7 +73,7 @@ export class WebsiteService {
       const hasHttps = normalizedUrl.startsWith('https://');
 
       // If accessible, fetch full content for more details
-      let metadata = { hasHttps, title: undefined, description: undefined };
+      let metadata: WebsiteInfo['metadata'] = { hasHttps };
       let htmlPreview = undefined;
 
       if (isAccessible) {
