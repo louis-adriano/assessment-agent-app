@@ -14,7 +14,7 @@ type ActionResult<T = any> = {
 }
 
 const updateUserRoleSchema = z.object({
-  userId: z.string().cuid(),
+  userId: z.string().min(1, 'User ID is required'),
   role: z.enum(['SUPER_ADMIN', 'COURSE_ADMIN', 'STUDENT']),
 })
 
@@ -108,7 +108,7 @@ export async function updateUserRole(data: {
   role: UserRole
 }): Promise<ActionResult> {
   try {
-    const currentUser = await requireSuperAdmin()
+    await requireSuperAdmin()
 
     // Validate input
     const validatedData = updateUserRoleSchema.parse(data)
