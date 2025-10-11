@@ -9,8 +9,11 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 export default function SignIn() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -104,7 +107,7 @@ export default function SignIn() {
                         setError(ctx.error.message || "Sign in failed");
                       },
                       onSuccess: () => {
-                        window.location.href = "/admin";
+                        window.location.href = callbackUrl;
                       },
                     },
                     );
@@ -139,7 +142,7 @@ export default function SignIn() {
                 onClick={async () => {
                   await signIn.social({
                     provider: "github",
-                    callbackURL: "/admin",
+                    callbackURL: callbackUrl,
                   });
                 }}
               >
@@ -154,7 +157,7 @@ export default function SignIn() {
                 onClick={async () => {
                   await signIn.social({
                     provider: "google",
-                    callbackURL: "/admin",
+                    callbackURL: callbackUrl,
                   });
                 }}
               >
@@ -186,12 +189,6 @@ export default function SignIn() {
                 Need an account?{' '}
                 <Link href="/auth/signup" className="text-blue-600 hover:underline">
                   Sign up
-                </Link>
-              </p>
-              <p className="text-sm text-gray-600 mt-2">
-                Don't need an account?{' '}
-                <Link href="/submit" className="text-blue-600 hover:underline">
-                  Submit as guest
                 </Link>
               </p>
             </div>

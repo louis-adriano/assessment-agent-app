@@ -8,7 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Upload, GitBranch, Globe, FileText, Image } from 'lucide-react';
+import { Loader2, Upload, GitBranch, Globe, FileText, Image, LogIn } from 'lucide-react';
+import { useSession } from '@/lib/auth-client';
+import Link from 'next/link';
 import { submitAssessment } from '@/lib/actions/submission-actions';
 import { validateGitHubUrl } from '@/lib/utils/github-validation';
 
@@ -36,6 +38,7 @@ interface SubmissionPageProps {
 export default function SubmissionPage({ params }: SubmissionPageProps) {
   const { courseName, assessmentNumber } = use(params);
   const router = useRouter();
+  const { data: session, isPending } = useSession();
   const [question, setQuestion] = useState<Question | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -408,7 +411,32 @@ onChange={(e) => handleGitHubUrlChange(e.target.value)}
     }
   };
 
-  if (loading) {
+  if (!isPending && !session) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Authentication Required</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Alert>
+              <LogIn className="h-4 w-4" />
+              <AlertDescription>
+                You must be logged in to submit assessments.
+              </AlertDescription>
+            </Alert>
+            <Button asChild className="mt-4">
+              <Link href={`/auth/signin?callbackUrl=${encodeURIComponent(`/submit/${courseName}/${assessmentNumber}`)}`}>
+                Sign In
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (loading || isPending) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center min-h-[400px]">

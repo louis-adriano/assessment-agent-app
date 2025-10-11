@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Github, Globe, FileText, Image, Upload, CheckCircle, XCircle, ArrowLeft, Info, LogIn } from 'lucide-react'
 import { getCourseByName } from '@/lib/actions/lookup-actions'
-import { submitAnonymousAssessment, submitAuthenticatedAssessment } from '@/lib/actions/submission-actions'
+import { submitAssessment } from '@/lib/actions/submission-actions'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { useSession } from '@/lib/auth-client'
 import Link from 'next/link'
@@ -169,14 +169,26 @@ function SubmitPageContent() {
         formData.append('file', file)
       }
 
-      // Submit assessment (AI will grade automatically)
-      // If user is logged in, save their info with the submission
-      let result;
-      if (session?.user?.id) {
-        result = await submitAuthenticatedAssessment(formData, session.user.id)
-      } else {
-        result = await submitAnonymousAssessment(formData)
+      // Submit assessment - authentication required
+      if (!session?.user?.id) {
+        setError('You must be logged in to submit assessments')
+        return
       }
+
+      // Extract data from formData and call submitAssessment
+      const courseName = formData.get('courseName') as string
+      const questionNumber = parseInt(formData.get('questionNumber') as string, 10)
+      const submissionType = formData.get('submissionType') as string
+      const content = formData.get('submissionContent') as string
+      const additionalInfo = formData.get('additionalInfo') as string | undefined
+
+      const result = await submitAssessment(
+        courseName,
+        questionNumber,
+        submissionType,
+        content,
+        additionalInfo
+      )
 
       if (result.success && result.submissionId) {
         setSuccess('Assessment completed successfully!')
@@ -320,6 +332,46 @@ function SubmitPageContent() {
     }
   }
 
+  if (!isPending && !session) {
+    return (
+      <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <Sidebar />
+        <main className="flex-1 lg:pl-72">
+          <div className="px-6 py-12 md:px-12">
+            <div className="max-w-2xl mx-auto">
+              <Card className="rounded-2xl shadow-md">
+                <CardHeader>
+                  <CardTitle>Authentication Required</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Alert className="rounded-xl">
+                    <LogIn className="h-4 w-4" />
+                    <AlertDescription>
+                      You must be logged in to submit assessments.
+                    </AlertDescription>
+                  </Alert>
+                  <div className="mt-4 flex gap-2">
+                    <Button asChild className="rounded-xl">
+                      <Link href={`/auth/signin?callbackUrl=${encodeURIComponent('/submit' + (courseName && assessmentNumber ? `?courseName=${courseName}&assessmentNumber=${assessmentNumber}` : ''))}`}>
+                        <LogIn className="mr-2 h-4 w-4" />
+                        Sign In
+                      </Link>
+                    </Button>
+                    <Button variant="outline" asChild className="rounded-xl">
+                      <Link href="/courses">
+                        Back to Courses
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   if (!courseName || !assessmentNumber) {
     return (
       <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -336,7 +388,7 @@ function SubmitPageContent() {
                     </AlertDescription>
                   </Alert>
                   <div className="mt-4">
-                    <Link href="/">
+                    <Link href="/courses">
                       <Button variant="outline" className="rounded-xl">
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Back to Courses
@@ -359,7 +411,7 @@ function SubmitPageContent() {
         <div className="px-6 py-12 md:px-12">
           <div className="max-w-3xl mx-auto space-y-6">
             {/* Navigation */}
-            <Link href="/">
+            <Link href="/courses">
               <Button variant="outline" size="sm" className="rounded-xl">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Courses

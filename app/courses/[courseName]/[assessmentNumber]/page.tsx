@@ -1,5 +1,7 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { auth } from '@/lib/auth/config'
+import { headers } from 'next/headers'
+import { notFound, redirect } from 'next/navigation'
 import { findQuestionByNumber } from '@/lib/actions/lookup-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -62,6 +64,15 @@ function getSubmissionTypeDescription(submissionType: string) {
 export default async function QuestionDetailPage({ params }: QuestionDetailPageProps) {
   const { courseName: rawCourseName, assessmentNumber: rawAssessmentNumber } = await params
   const courseName = decodeURIComponent(rawCourseName)
+  // Require authentication to view assessment details
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
+
+  if (!session?.user) {
+    redirect(`/auth/signin?callbackUrl=${encodeURIComponent(`/courses/${rawCourseName}/${rawAssessmentNumber}`)}`)
+  }
+
   const assessmentNumber = parseInt(rawAssessmentNumber)
   
   const questionResult = await findQuestionByNumber(courseName, assessmentNumber)
@@ -102,9 +113,9 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                 </div>
               </div>
               <Button className="bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
-                <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${assessmentNumber}`}>
+                <Link href={`/submit/${encodeURIComponent(courseName)}/${assessmentNumber}`}>
                   <Play className="mr-2 h-4 w-4" />
-                  Start Assessment
+                  Submit Assessment
                 </Link>
               </Button>
             </div>
@@ -241,14 +252,14 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button className="w-full bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
-                    <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${assessmentNumber}`}>
+                    <Link href={`/submit/${encodeURIComponent(courseName)}/${assessmentNumber}`}>
                       <Play className="mr-2 h-4 w-4" />
-                      Start Assessment
+                      Submit Assessment
                     </Link>
                   </Button>
                   <Button variant="outline" className="w-full rounded-xl" asChild>
                     <Link href={`/courses/${encodeURIComponent(courseName)}`}>
-                      View All Assessments
+                      Back to Course
                     </Link>
                   </Button>
                 </CardContent>
@@ -403,9 +414,9 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
               </p>
               <div className="flex gap-4 justify-center">
                 <Button size="lg" className="bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
-                  <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${assessmentNumber}`}>
+                  <Link href={`/submit/${encodeURIComponent(courseName)}/${assessmentNumber}`}>
                     <Play className="mr-2 h-4 w-4" />
-                    Start Assessment
+                    Submit Assessment
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" className="rounded-xl" asChild>

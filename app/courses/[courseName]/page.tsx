@@ -1,5 +1,7 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { auth } from '@/lib/auth/config'
+import { headers } from 'next/headers'
+import { notFound, redirect } from 'next/navigation'
 import { findCourseByName, getCourseQuestions } from '@/lib/actions/lookup-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,6 +17,16 @@ interface CourseDetailPageProps {
 
 export default async function CourseDetailPage({ params }: CourseDetailPageProps) {
   const { courseName: rawCourseName } = await params
+  
+  // Require authentication to view course details
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
+
+  if (!session?.user) {
+    redirect(`/auth/signin?callbackUrl=${encodeURIComponent(`/courses/${rawCourseName}`)}`)
+  }
+
   const courseName = decodeURIComponent(rawCourseName)
   
   // Get course information
@@ -50,11 +62,6 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                   {questions.length} questions • Self-paced learning • Instant feedback
                 </p>
               </div>
-              <Button className="bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
-                <Link href={`/submit?courseName=${encodeURIComponent(courseName)}`}>
-                  Start Assessment
-                </Link>
-              </Button>
             </div>
           </div>
         </header>
@@ -93,7 +100,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <CheckCircle className="h-4 w-4 text-teal-600" />
-                      <span>No registration required</span>
+                      <span>Registration required</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <CheckCircle className="h-4 w-4 text-teal-600" />
@@ -118,9 +125,9 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
 
                 <div className="pt-4">
                   <Button className="w-full bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
-                    <Link href={`/submit?courseName=${encodeURIComponent(courseName)}`}>
+                    <Link href={`/courses/${encodeURIComponent(courseName)}/1`}>
                       <Play className="mr-2 h-4 w-4" />
-                      Start First Assessment
+                      Start Course
                     </Link>
                   </Button>
                 </div>
@@ -132,10 +139,10 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
           <div className="lg:col-span-2">
             <div className="mb-6">
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                Assessment Questions
+                Course Assessments
               </h2>
               <p className="text-gray-600">
-                Complete questions in any order. Each provides instant feedback to help you learn.
+                Complete assessments at your own pace and track your progress throughout the course.
               </p>
             </div>
 
@@ -194,19 +201,12 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                           </div>
                         </div>
 
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" className="rounded-xl" asChild>
-                            <Link href={`/courses/${encodeURIComponent(courseName)}/${question.questionNumber}`}>
-                              View Details
-                            </Link>
-                          </Button>
-                          <Button size="sm" className="bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
-                            <Link href={`/submit?courseName=${encodeURIComponent(courseName)}&assessmentNumber=${question.questionNumber}`}>
-                              <ArrowRight className="mr-2 h-4 w-4" />
-                              Start
-                            </Link>
-                          </Button>
-                        </div>
+                        <Button size="sm" className="bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
+                          <Link href={`/courses/${encodeURIComponent(courseName)}/${question.questionNumber}`}>
+                            Start Assessment
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </Link>
+                        </Button>
                       </div>
 
                       {question.guidance && (

@@ -3,15 +3,17 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { processAnonymousAssessment } from '@/lib/services/assessment-service'
+import { processAssessment } from '@/lib/services/assessment-service'
 import { githubService } from '@/lib/services/github-service'
 import { documentService } from '@/lib/services/document-service'
 import { websiteService } from '@/lib/services/website-service'
 import { screenshotService } from '@/lib/services/screenshot-service'
 import { getCourseByName } from './lookup-actions'
 import { sanitizeObject, sanitizeTextContent } from '@/lib/utils/sanitization'
+import { auth } from '@/lib/auth/config'
 // import { SubmissionType, SubmissionStatus } from '@prisma/client'
 
 // Enhanced validation schema with GitHub URL support
@@ -77,7 +79,17 @@ export async function submitAssessment(
   additionalInfo?: string
 ): Promise<ActionResult> {
   try {
-    console.log('📝 Starting submission:', { courseName, questionNumber, submissionType, contentLength: content.length });
+    // Require authentication
+    const session = await auth.api.getSession({
+      headers: await headers()
+    });
+
+    if (!session?.user) {
+      return { success: false, error: 'You must be logged in to submit an assessment' };
+    }
+
+    const userId = session.user.id;
+    console.log('📝 Starting submission:', { courseName, questionNumber, submissionType, contentLength: content.length, userId });
 
     // Validate input with enhanced schema
     const validation = submissionSchema.safeParse({
@@ -184,7 +196,7 @@ export async function submitAssessment(
     const submission = await prisma.submission.create({
       data: {
         questionId: question.id,
-        userId: null, // Anonymous submission
+        userId: userId,
         submissionContent: sanitizedContent,
         status: 'PROCESSING',
         assessmentResult: undefined, // Will be updated after assessment
@@ -215,11 +227,10 @@ export async function submitAssessment(
         console.log('✅ Screenshot assessment completed');
       } else {
         console.log('🔍 Starting regular assessment...');
-        assessmentResult = await processAnonymousAssessment({
-          submissionId: submission.id,
+        assessmentResult = await processAssessment({
+          userId: userId,
           questionId: question.id,
           submissionContent: finalContent,
-          question: question,
         });
         console.log('✅ Regular assessment completed');
       }
@@ -279,6 +290,20 @@ export async function submitAssessment(
       error: error instanceof Error ? error.message : 'Failed to submit assessment',
     };
   }
+}
+
+/**
+ * Helper to get userId from submissionId
+ */
+async function getUserIdFromSubmission(submissionId: string): Promise<string> {
+  const submission = await prisma.submission.findUnique({
+    where: { id: submissionId },
+    select: { userId: true }
+  });
+  if (!submission?.userId) {
+    throw new Error('Submission not found or has no user');
+  }
+  return submission.userId;
 }
 
 /**
@@ -352,11 +377,10 @@ Provide specific examples from the code when pointing out strengths or areas for
     `;
 
     // Get AI assessment with GitHub-specific prompt
-    const assessment = await processAnonymousAssessment({
-      submissionId: submissionId,
+    const assessment = await processAssessment({
+      userId: await getUserIdFromSubmission(submissionId),
       questionId: question.id,
       submissionContent: githubPrompt,
-      question: question,
     });
 
     // Enhance feedback with GitHub-specific insights
@@ -500,11 +524,10 @@ Provide specific feedback on strengths and areas for improvement.
     `;
 
     // Get AI assessment with document-specific prompt
-    const assessment = await processAnonymousAssessment({
-      submissionId: submissionId,
+    const assessment = await processAssessment({
+      userId: await getUserIdFromSubmission(submissionId),
       questionId: question.id,
       submissionContent: documentPrompt,
-      question: question,
     });
 
     // Enhance feedback with document-specific insights
@@ -599,11 +622,10 @@ Provide specific feedback based on the technical analysis above.
     `;
 
     // Get AI assessment
-    const assessment = await processAnonymousAssessment({
-      submissionId: submissionId,
+    const assessment = await processAssessment({
+      userId: await getUserIdFromSubmission(submissionId),
       questionId: question.id,
       submissionContent: websitePrompt,
-      question: question,
     });
 
     // Enhance feedback with website-specific insights
@@ -723,11 +745,10 @@ ${!screenshotInfo ? 'Note: The submission is a URL or description. Assess based 
     `;
 
     // Get AI assessment
-    const assessment = await processAnonymousAssessment({
-      submissionId: submissionId,
+    const assessment = await processAssessment({
+      userId: await getUserIdFromSubmission(submissionId),
       questionId: question.id,
       submissionContent: screenshotPrompt,
-      question: question,
     });
 
     // Enhance feedback
@@ -801,285 +822,5 @@ export async function getAnonymousSubmissionResult(submissionId: string) {
   } catch (error) {
     console.error('Error getting anonymous submission result:', error);
     return null;
-  }
-}
-
-/**
- * Alternative submission function for simple text/form submissions
- */
-export async function submitAnonymousAssessment(formData: FormData): Promise<ActionResult> {
-  const courseName = formData.get('courseName') as string;
-  const assessmentNumber = parseInt(formData.get('assessmentNumber') as string);
-  const submissionContent = formData.get('submissionContent') as string;
-
-  console.log('📝 submitAnonymousAssessment called with:', { courseName, assessmentNumber, contentLength: submissionContent?.length });
-
-  // First get the question to determine the correct submission type
-  const courseResult = await getCourseByName(courseName);
-  console.log('📊 Course lookup result:', { success: courseResult.success, hasData: !!courseResult.data, error: courseResult.error });
-
-  if (!courseResult.success || !courseResult.data) {
-    return { success: false, error: courseResult.error || `Course "${courseName}" not found` };
-  }
-
-  if (!courseResult.data.questions || !Array.isArray(courseResult.data.questions)) {
-    console.error('❌ No questions found in course data:', courseResult.data);
-    return { success: false, error: `No questions found in course "${courseName}"` };
-  }
-
-  const question = courseResult.data.questions.find(
-    (q: any) => q.questionNumber === assessmentNumber
-  );
-
-  if (!question) {
-    console.error('❌ Question not found:', { assessmentNumber, availableQuestions: courseResult.data.questions.map((q: any) => q.questionNumber) });
-    return { success: false, error: `Assessment #${assessmentNumber} not found` };
-  }
-
-  console.log('✅ Found question:', { id: question.id, submissionType: question.submissionType });
-
-  return await submitAssessment(
-    courseName,
-    assessmentNumber,
-    question.submissionType, // Use the actual submission type from the question
-    submissionContent
-  );
-}
-
-/**
- * Submit assessment with authentication (saves user info + runs AI assessment)
- */
-export async function submitAuthenticatedAssessment(formData: FormData, userId: string): Promise<ActionResult> {
-  const courseName = formData.get('courseName') as string;
-  const assessmentNumber = parseInt(formData.get('assessmentNumber') as string);
-  const submissionContent = formData.get('submissionContent') as string;
-
-  console.log('📝 submitAuthenticatedAssessment called with:', { courseName, assessmentNumber, userId });
-
-  // Get the course and question
-  const courseResult = await getCourseByName(courseName);
-
-  if (!courseResult.success || !courseResult.data) {
-    return { success: false, error: courseResult.error || `Course "${courseName}" not found` };
-  }
-
-  const question = courseResult.data.questions.find(
-    (q: any) => q.questionNumber === assessmentNumber
-  );
-
-  if (!question) {
-    return { success: false, error: `Assessment #${assessmentNumber} not found` };
-  }
-
-  // Use the regular submitAssessment but with userId
-  // This will run AI assessment AND save the user's info
-  return await submitAssessmentWithUser(
-    courseName,
-    assessmentNumber,
-    question.submissionType,
-    submissionContent,
-    userId
-  );
-}
-
-/**
- * Internal function: Submit assessment with optional userId
- */
-async function submitAssessmentWithUser(
-  courseName: string,
-  questionNumber: number,
-  submissionType: string,
-  content: string,
-  userId?: string,
-  additionalInfo?: string
-): Promise<ActionResult> {
-  try {
-    console.log('📝 Starting submission:', { courseName, questionNumber, submissionType, hasUserId: !!userId });
-
-    // Validate input with enhanced schema
-    const validation = submissionSchema.safeParse({
-      courseName,
-      questionNumber,
-      submissionType,
-      content,
-      additionalInfo,
-    });
-
-    if (!validation.success) {
-      const errorMessage = validation.error.errors[0]?.message || 'Validation failed';
-      console.error('❌ Validation failed:', validation.error.errors);
-      return { success: false, error: errorMessage };
-    }
-
-    // Find course by name
-    const course = await prisma.course.findFirst({
-      where: {
-        name: {
-          equals: courseName,
-          mode: 'insensitive'
-        }
-      },
-      include: {
-        questions: {
-          where: {
-            questionNumber: questionNumber,
-            isActive: true
-          }
-        }
-      }
-    });
-
-    if (!course || course.questions.length === 0) {
-      return { success: false, error: `Question ${questionNumber} not found in course "${courseName}"` };
-    }
-
-    const question = course.questions[0];
-
-    // Validate submission type matches question
-    if (question.submissionType !== submissionType) {
-      return {
-        success: false,
-        error: `Question expects ${question.submissionType} submission, but received ${submissionType}`
-      };
-    }
-
-    // For GitHub repos, validate URL before creating submission
-    if (question.submissionType === 'GITHUB_REPO') {
-      console.log('🔍 Validating GitHub URL:', content);
-
-      let cleanUrl = content.trim();
-      if (!cleanUrl.startsWith('http')) {
-        cleanUrl = `https://${cleanUrl}`;
-      }
-
-      if (!githubService.isValidGitHubUrl(cleanUrl)) {
-        return {
-          success: false,
-          error: 'Invalid GitHub repository URL. Please provide a valid GitHub repository link.'
-        };
-      }
-
-      try {
-        const parsed = githubService.parseGitHubUrl(cleanUrl);
-        if (!parsed) {
-          return {
-            success: false,
-            error: 'Could not parse GitHub repository URL. Please check the format.'
-          };
-        }
-        console.log('✅ GitHub URL parsed successfully:', parsed);
-      } catch (error) {
-        console.error('❌ GitHub URL parsing failed:', error);
-        return {
-          success: false,
-          error: 'Failed to validate GitHub repository URL.'
-        };
-      }
-
-      content = sanitizeTextContent(content);
-      console.log('🧹 Content sanitized for database safety');
-    }
-
-    const finalContent = additionalInfo
-      ? `${content}\n\nAdditional Notes:\n${additionalInfo}`
-      : content;
-
-    const sanitizedContent = sanitizeTextContent(finalContent);
-
-    // Create submission record with optional userId
-    const submission = await prisma.submission.create({
-      data: {
-        questionId: question.id,
-        userId: userId || null, // Save user ID if provided
-        submissionContent: sanitizedContent,
-        status: 'PROCESSING',
-        assessmentResult: undefined,
-      },
-    });
-
-    console.log('📝 Submission created:', submission.id, 'with userId:', userId || 'anonymous');
-
-    // Perform AI assessment
-    let assessmentResult;
-
-    try {
-      if (question.submissionType === 'GITHUB_REPO') {
-        console.log('🔍 Starting GitHub assessment...');
-        assessmentResult = await assessGitHubRepository(content, question, submission.id);
-        console.log('✅ GitHub assessment completed');
-      } else if (question.submissionType === 'DOCUMENT') {
-        console.log('📄 Starting document assessment...');
-        assessmentResult = await assessDocument(content, question, submission.id);
-        console.log('✅ Document assessment completed');
-      } else if (question.submissionType === 'WEBSITE') {
-        console.log('🌐 Starting website assessment...');
-        assessmentResult = await assessWebsite(content, question, submission.id);
-        console.log('✅ Website assessment completed');
-      } else if (question.submissionType === 'SCREENSHOT') {
-        console.log('📸 Starting screenshot assessment...');
-        assessmentResult = await assessScreenshot(content, question, submission.id);
-        console.log('✅ Screenshot assessment completed');
-      } else {
-        console.log('🔍 Starting regular assessment...');
-        assessmentResult = await processAnonymousAssessment({
-          submissionId: submission.id,
-          questionId: question.id,
-          submissionContent: finalContent,
-          question: question,
-        });
-        console.log('✅ Regular assessment completed');
-      }
-
-      const sanitizedAssessmentResult = sanitizeObject(assessmentResult);
-      console.log('🛡️ Final assessment result sanitized');
-
-      // Update submission with assessment results
-      await prisma.submission.update({
-        where: { id: submission.id },
-        data: {
-          status: 'COMPLETED',
-          assessmentResult: sanitizedAssessmentResult as any,
-          processedAt: new Date(),
-        },
-      });
-
-      console.log('✅ Assessment saved to database');
-
-    } catch (assessmentError) {
-      console.error('❌ Assessment failed:', assessmentError);
-
-      const errorMessage = assessmentError instanceof Error ? assessmentError.message : 'Unknown error';
-      const sanitizedErrorMessage = sanitizeTextContent(errorMessage);
-
-      await prisma.submission.update({
-        where: { id: submission.id },
-        data: {
-          status: 'FAILED',
-          assessmentResult: {
-            remark: 'Needs Improvement',
-            feedback: `Assessment failed: ${sanitizedErrorMessage}`,
-            criteria_met: [],
-            areas_for_improvement: ['Submission processing'],
-            confidence: 0.1,
-            processing_time_ms: 0,
-            model_used: 'error-handler',
-          },
-        },
-      });
-    }
-
-    revalidatePath(`/results/${submission.id}`);
-    return {
-      success: true,
-      submissionId: submission.id,
-      data: { submissionId: submission.id }
-    };
-
-  } catch (error) {
-    console.error('❌ Submission error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to submit assessment',
-    };
   }
 }

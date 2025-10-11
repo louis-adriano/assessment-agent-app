@@ -188,7 +188,7 @@ model BaseExample {
 model Submission {
   id                String           @id @default(cuid())
   questionId        String
-  userId            String?          // Nullable for anonymous submissions (automated mode only)
+  userId            String           // Required - all submissions must be authenticated
   submissionContent String?          @db.Text
   submissionUrl     String?
   fileUrl           String?
@@ -207,7 +207,7 @@ model Submission {
   processedAt       DateTime?
 
   question      Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   notifications Notification[]
 }
 
