@@ -191,7 +191,8 @@ export async function getSubmissionForReview(submissionId: string): Promise<Acti
 export async function submitManualFeedback(
   submissionId: string,
   feedback: string,
-  score: string
+  score: string,
+  grade?: number
 ): Promise<ActionResult> {
   try {
     const user = await requireRole([UserRole.SUPER_ADMIN, UserRole.COURSE_ADMIN])
@@ -232,6 +233,7 @@ export async function submitManualFeedback(
       data: {
         manualFeedback: feedback,
         manualScore: score,
+        manualGrade: grade,
         reviewedBy: user.id,
         reviewedAt: new Date(),
         status: 'COMPLETED',

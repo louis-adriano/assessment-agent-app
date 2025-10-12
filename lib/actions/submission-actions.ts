@@ -136,6 +136,9 @@ export async function submitAssessment(
       return { success: false, error: `Question ${questionNumber} not found in course "${courseName}"` };
     }
 
+    // Check assessment mode
+    const assessmentMode = question.assessmentMode || 'AI_ONLY';
+
     // Validate submission type matches question
     if (question.submissionType !== submissionType) {
       return {
@@ -192,20 +195,40 @@ export async function submitAssessment(
     
     const sanitizedContent = sanitizeTextContent(finalContent);
 
-    // Create submission record
+    // Create submission record with appropriate initial status based on assessment mode
+    const initialStatus = assessmentMode === 'MANUAL_ONLY' ? 'PENDING' : 'PROCESSING';
+
     const submission = await prisma.submission.create({
       data: {
         questionId: question.id,
         userId: userId,
         submissionContent: sanitizedContent,
-        status: 'PROCESSING',
-        assessmentResult: undefined, // Will be updated after assessment
+        status: initialStatus,
+        assessmentResult: undefined, // Will be updated after assessment (for AI modes)
       },
     });
 
-    console.log('📝 Submission created:', submission.id);
+    console.log('📝 Submission created:', submission.id, 'Mode:', assessmentMode, 'Status:', initialStatus);
 
-    // Perform assessment
+    // For MANUAL_ONLY mode, skip AI processing entirely
+    if (assessmentMode === 'MANUAL_ONLY') {
+      console.log('📋 Manual review mode - skipping AI assessment');
+      revalidatePath(`/courses/${courseName}`);
+      revalidatePath('/my-submissions');
+      revalidatePath('/admin/submissions');
+      
+      return {
+        success: true,
+        submissionId: submission.id,
+        data: {
+          submissionId: submission.id,
+          message: 'Submission received! Your work will be reviewed by an instructor.',
+          mode: 'manual'
+        }
+      };
+    }
+
+    // Perform AI assessment for AI_ONLY and BOTH modes
     let assessmentResult;
     
     try {
@@ -277,10 +300,27 @@ export async function submitAssessment(
     }
 
     revalidatePath(`/results/${submission.id}`);
-    return { 
-      success: true, 
+    revalidatePath(`/courses/${courseName}`);
+    revalidatePath('/my-submissions');
+    revalidatePath('/admin/submissions');
+
+    // Return appropriate message based on assessment mode (don't include assessment result - it's in the database)
+    const responseData: any = {
+      submissionId: submission.id
+    };
+
+    if (assessmentMode === 'BOTH') {
+      responseData.message = 'AI assessment complete! Your submission will also be reviewed by an instructor.';
+      responseData.mode = 'both';
+    } else {
+      responseData.message = 'AI assessment complete!';
+      responseData.mode = 'ai';
+    }
+
+    return {
+      success: true,
       submissionId: submission.id,
-      data: { submissionId: submission.id }
+      data: responseData
     };
 
   } catch (error) {

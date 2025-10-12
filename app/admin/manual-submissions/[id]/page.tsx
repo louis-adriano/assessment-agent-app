@@ -24,6 +24,7 @@ interface SubmissionData {
   reviewedAt: Date | null
   manualFeedback: string | null
   manualScore: string | null
+  manualGrade: number | null
   user: {
     id: string
     name: string | null
@@ -60,6 +61,7 @@ export default function SubmissionReviewPage({ params }: PageProps) {
   const [submitting, setSubmitting] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [score, setScore] = useState('')
+  const [grade, setGrade] = useState('')
 
   useEffect(() => {
     async function loadSubmission() {
@@ -72,6 +74,7 @@ export default function SubmissionReviewPage({ params }: PageProps) {
         setSubmission(result.data)
         setFeedback(result.data.manualFeedback || '')
         setScore(result.data.manualScore || '')
+        setGrade(result.data.manualGrade?.toString() || '')
       } else {
         toast.error(result.error || 'Failed to load submission')
       }
@@ -93,10 +96,16 @@ export default function SubmissionReviewPage({ params }: PageProps) {
       return
     }
 
+    const gradeNum = grade ? parseFloat(grade) : undefined
+    if (gradeNum !== undefined && (gradeNum < 0 || gradeNum > 100)) {
+      toast.error('Grade must be between 0 and 100')
+      return
+    }
+
     setSubmitting(true)
 
     try {
-      const result = await submitManualFeedback(submissionId, feedback, score)
+      const result = await submitManualFeedback(submissionId, feedback, score, gradeNum)
 
       if (result.success) {
         toast.success('Feedback submitted successfully!')
@@ -176,6 +185,9 @@ export default function SubmissionReviewPage({ params }: PageProps) {
           <Badge className="bg-green-100 text-green-700 border-green-300">
             <CheckCircle className="mr-1 h-3 w-3" />
             Reviewed
+            {submission.manualGrade !== null && submission.manualGrade !== undefined && (
+              <span className="ml-2">• {submission.manualGrade}%</span>
+            )}
           </Badge>
         )}
       </div>
@@ -299,6 +311,24 @@ export default function SubmissionReviewPage({ params }: PageProps) {
                     <option value="Pass">Pass</option>
                     <option value="Needs Improvement">Needs Improvement</option>
                   </select>
+                </div>
+
+                <div>
+                  <Label htmlFor="grade">Numeric Grade (Optional)</Label>
+                  <input
+                    id="grade"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
+                    placeholder="Enter grade (0-100)"
+                    className="w-full px-3 py-2 border border-input rounded-md mt-2"
+                  />
+                  <p className="text-sm text-gray-600 mt-1">
+                    Enter a numeric grade between 0 and 100 (optional).
+                  </p>
                 </div>
 
                 <div>

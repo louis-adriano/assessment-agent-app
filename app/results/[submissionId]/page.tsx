@@ -26,7 +26,8 @@ import {
   User,
   BookOpen,
   TrendingUp,
-  LogIn
+  LogIn,
+  FileEdit
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
@@ -169,6 +170,8 @@ export default function ResultsPage({ params }: Props) {
 
   const assessmentResult = submission.assessmentResult as any
   const hasManualReview = !!(submission as any).manualFeedback
+  const assessmentMode = submission.question?.assessmentMode || 'AI_ONLY'
+  const isPendingManualReview = submission.status === 'PENDING' || (assessmentMode === 'BOTH' && !hasManualReview)
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -222,9 +225,28 @@ export default function ResultsPage({ params }: Props) {
                     <h1 className="text-2xl font-bold text-gray-900">
                       Question {submission.question.questionNumber}: {submission.question.title}
                     </h1>
+                    <div className="flex items-center gap-2 mt-2">
+                      {assessmentMode === 'MANUAL_ONLY' && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+                          <FileText className="h-3 w-3 mr-1" />
+                          Manual Review Only
+                        </Badge>
+                      )}
+                      {assessmentMode === 'BOTH' && (
+                        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300">
+                          AI + Manual Review
+                        </Badge>
+                      )}
+                      {isPendingManualReview && !hasManualReview && (
+                        <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-400">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Awaiting Instructor Review
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <Badge className={`${getRemarkColor(assessmentResult?.remark || '')} border`}>
-                    {assessmentResult?.remark || 'Processing'}
+                    {assessmentResult?.remark || (isPendingManualReview ? 'Pending Review' : 'Processing')}
                   </Badge>
                 </div>
 
@@ -251,8 +273,58 @@ export default function ResultsPage({ params }: Props) {
             <div className="grid lg:grid-cols-3 gap-6">
               {/* Main Content - Left Side (2/3) */}
               <div className="lg:col-span-2 space-y-6">
-                {/* AI Assessment Score */}
-                {assessmentResult?.remark && (
+                {/* Manual Review Section - Show First for Manual Mode */}
+                {hasManualReview && (
+                  <Card className="border-2 border-emerald-300 shadow-lg bg-gradient-to-br from-emerald-50 to-white">
+                    <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-t-xl">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2 text-xl">
+                          <Edit className="h-6 w-6" />
+                          Instructor Review
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-white/20 text-white border-white/30">
+                            {(submission as any).manualScore}
+                          </Badge>
+                          {(submission as any).manualGrade !== null && (submission as any).manualGrade !== undefined && (
+                            <Badge className="bg-white text-emerald-600 font-bold">
+                              {(submission as any).manualGrade}%
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-sm text-emerald-50 flex items-center gap-2 mt-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Reviewed {(submission as any).reviewedAt && formatDistanceToNow(new Date((submission as any).reviewedAt), { addSuffix: true })}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      <div className="p-5 bg-white rounded-lg border-2 border-emerald-200 shadow-sm">
+                        <p className="text-gray-800 whitespace-pre-wrap leading-relaxed text-base">
+                          {(submission as any).manualFeedback}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Pending Manual Review Notice */}
+                {!hasManualReview && (assessmentMode === 'MANUAL_ONLY' || assessmentMode === 'BOTH') && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Awaiting Instructor Review</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-600">
+                        Your submission is in the review queue. An instructor will review your work and provide detailed feedback soon.
+                        {assessmentMode === 'BOTH' && ' You can see the AI assessment below while you wait.'}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* AI Assessment Score - Only show for AI modes */}
+                {assessmentResult?.remark && assessmentMode !== 'MANUAL_ONLY' && (
                   <Card className="border-0 shadow-lg">
                     <CardHeader className="pb-4">
                       <CardTitle className="flex items-center gap-2 text-lg">
@@ -339,34 +411,6 @@ export default function ResultsPage({ params }: Props) {
                       </Card>
                     )}
                   </div>
-                )}
-
-                {/* Instructor Feedback */}
-                {hasManualReview && (
-                  <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-lg">
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                          <Edit className="h-5 w-5 text-emerald-600" />
-                          Instructor Review
-                        </CardTitle>
-                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">
-                          {(submission as any).manualScore}
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-gray-600 flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                        Reviewed {(submission as any).reviewedAt && formatDistanceToNow(new Date((submission as any).reviewedAt), { addSuffix: true })}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="p-4 bg-white rounded-lg border border-emerald-200 max-h-96 overflow-y-auto">
-                        <p className="text-gray-800 whitespace-pre-wrap leading-relaxed break-words">
-                          {(submission as any).manualFeedback}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
                 )}
               </div>
 

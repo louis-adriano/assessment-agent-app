@@ -6,6 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -20,6 +21,12 @@ enum SubmissionType {
   GITHUB_REPO
   SCREENSHOT
   WEBSITE
+}
+
+enum AssessmentMode {
+  AI_ONLY
+  MANUAL_ONLY
+  BOTH
 }
 
 enum SubmissionStatus {
@@ -151,6 +158,7 @@ model Question {
   title            String
   description      String         @db.Text
   submissionType   SubmissionType
+  assessmentMode   AssessmentMode @default(AI_ONLY)
   assessmentPrompt String?        @db.Text
   criteria         String[]       @default([])
   redFlags         String[]       @default([])
@@ -198,7 +206,8 @@ model Submission {
 
   // Manual feedback fields
   manualFeedback    String?          @db.Text
-  manualScore       String?          // e.g., "Pass", "Good", "Great", "Excellent"
+  manualScore       String?          // e.g., "Pass", "Needs Improvement", "Excellent"
+  manualGrade       Float?           // Optional numeric grade (0-100)
   reviewedBy        String?          // Admin user ID who reviewed
   reviewedAt        DateTime?
 

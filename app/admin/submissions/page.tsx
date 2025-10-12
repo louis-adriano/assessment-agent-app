@@ -51,6 +51,7 @@ interface Submission {
     title: string
     questionNumber: number
     submissionType: string
+    assessmentMode: string
     course: {
       id: string
       name: string
@@ -120,7 +121,7 @@ function getRemarkColor(remark: string) {
 export default function SubmissionsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<ViewMode>('hierarchy')
+  const [viewMode, setViewMode] = useState<ViewMode>('all')
 
   // Hierarchy navigation state
   const [hierarchyLevel, setHierarchyLevel] = useState<HierarchyLevel>('courses')
@@ -133,6 +134,7 @@ export default function SubmissionsPage() {
     status: '',
     studentEmail: '',
     reviewStatus: '',
+    assessmentMode: '',
     dateFrom: '',
     dateTo: ''
   })
@@ -164,8 +166,11 @@ export default function SubmissionsPage() {
     setLoading(false)
   }
 
+  // Show all submissions (no tab filtering)
+  const tabFilteredSubmissions = submissions
+
   // Group submissions by course
-  const courseGroups: CourseGroup[] = submissions.reduce((acc, submission) => {
+  const courseGroups: CourseGroup[] = tabFilteredSubmissions.reduce((acc, submission) => {
     const courseId = submission.question.course.id
     const courseName = submission.question.course.name
 
@@ -192,7 +197,7 @@ export default function SubmissionsPage() {
 
   // Group submissions by assessment for selected course
   const assessmentGroups: AssessmentGroup[] = selectedCourse
-    ? submissions
+    ? tabFilteredSubmissions
         .filter(s => s.question.course.id === selectedCourse)
         .reduce((acc, submission) => {
           const assessmentId = submission.question.id
@@ -217,7 +222,7 @@ export default function SubmissionsPage() {
 
   // Get submissions for selected assessment
   const studentSubmissions = selectedAssessment
-    ? submissions.filter(s => s.question.id === selectedAssessment)
+    ? tabFilteredSubmissions.filter(s => s.question.id === selectedAssessment)
     : []
 
   // Apply filters to student submissions
@@ -225,6 +230,7 @@ export default function SubmissionsPage() {
     if (filters.reviewStatus === 'reviewed' && !s.manualFeedback) return false
     if (filters.reviewStatus === 'pending' && s.manualFeedback) return false
     if (filters.status && s.status !== filters.status) return false
+    if (filters.assessmentMode && s.question.assessmentMode !== filters.assessmentMode) return false
     if (filters.studentEmail && !s.user?.email.toLowerCase().includes(filters.studentEmail.toLowerCase())) return false
     if (filters.dateFrom && new Date(s.createdAt) < new Date(filters.dateFrom)) return false
     if (filters.dateTo && new Date(s.createdAt) > new Date(filters.dateTo)) return false
@@ -232,10 +238,11 @@ export default function SubmissionsPage() {
   })
 
   // For "View All" mode
-  const allFilteredSubmissions = submissions.filter(s => {
+  const allFilteredSubmissions = tabFilteredSubmissions.filter(s => {
     if (filters.reviewStatus === 'reviewed' && !s.manualFeedback) return false
     if (filters.reviewStatus === 'pending' && s.manualFeedback) return false
     if (filters.status && s.status !== filters.status) return false
+    if (filters.assessmentMode && s.question.assessmentMode !== filters.assessmentMode) return false
     if (filters.studentEmail && !s.user?.email.toLowerCase().includes(filters.studentEmail.toLowerCase())) return false
     if (filters.dateFrom && new Date(s.createdAt) < new Date(filters.dateFrom)) return false
     if (filters.dateTo && new Date(s.createdAt) > new Date(filters.dateTo)) return false
@@ -244,16 +251,17 @@ export default function SubmissionsPage() {
 
   const displaySubmissions = viewMode === 'all' ? allFilteredSubmissions : filteredSubmissions
 
-  // Stats should always be based on ALL submissions, regardless of view mode or hierarchy level
+  // Stats based on tab-filtered submissions
   const stats = {
-    total: submissions.length,
-    completed: submissions.filter(s => s.status === 'COMPLETED').length,
-    processing: submissions.filter(s => s.status === 'PROCESSING').length,
-    failed: submissions.filter(s => s.status === 'FAILED').length,
-    anonymous: submissions.filter(s => !s.userId).length,
-    authenticated: submissions.filter(s => s.userId).length,
-    reviewed: submissions.filter(s => s.manualFeedback).length,
-    pendingReview: submissions.filter(s => !s.manualFeedback).length
+    total: tabFilteredSubmissions.length,
+    completed: tabFilteredSubmissions.filter(s => s.status === 'COMPLETED').length,
+    processing: tabFilteredSubmissions.filter(s => s.status === 'PROCESSING').length,
+    pending: tabFilteredSubmissions.filter(s => s.status === 'PENDING').length,
+    failed: tabFilteredSubmissions.filter(s => s.status === 'FAILED').length,
+    anonymous: tabFilteredSubmissions.filter(s => !s.userId).length,
+    authenticated: tabFilteredSubmissions.filter(s => s.userId).length,
+    reviewed: tabFilteredSubmissions.filter(s => s.manualFeedback).length,
+    pendingReview: tabFilteredSubmissions.filter(s => !s.manualFeedback).length
   }
 
   const handleCourseSelect = (courseId: string) => {
@@ -284,37 +292,9 @@ export default function SubmissionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Submissions</h1>
-          <p className="text-gray-600">
-            {viewMode === 'hierarchy' && hierarchyLevel === 'courses' && 'Select a course to view submissions'}
-            {viewMode === 'hierarchy' && hierarchyLevel === 'assessments' && 'Select an assessment to view student submissions'}
-            {viewMode === 'hierarchy' && hierarchyLevel === 'students' && 'Review individual student submissions'}
-            {viewMode === 'all' && 'All submissions across all courses'}
-          </p>
+          <p className="text-gray-600">All submissions across all modes</p>
         </div>
         <div className="flex gap-2">
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <Button
-              variant={viewMode === 'hierarchy' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => {
-                setViewMode('hierarchy')
-                handleBackToCourses()
-              }}
-              className={viewMode === 'hierarchy' ? '' : 'hover:bg-gray-200'}
-            >
-              <LayoutGrid className="mr-2 h-4 w-4" />
-              By Course
-            </Button>
-            <Button
-              variant={viewMode === 'all' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('all')}
-              className={viewMode === 'all' ? '' : 'hover:bg-gray-200'}
-            >
-              <List className="mr-2 h-4 w-4" />
-              View All
-            </Button>
-          </div>
           <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
             <Filter className="mr-2 h-4 w-4" />
             {showFilters ? 'Hide' : 'Filters'}
@@ -325,6 +305,35 @@ export default function SubmissionsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Content */}
+      <div className="space-y-6">
+          {/* View Mode Toggle - Moved inside tabs */}
+          <div className="flex gap-2">
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <Button
+                variant={viewMode === 'hierarchy' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => {
+                  setViewMode('hierarchy')
+                  handleBackToCourses()
+                }}
+                className={viewMode === 'hierarchy' ? '' : 'hover:bg-gray-200'}
+              >
+                <LayoutGrid className="mr-2 h-4 w-4" />
+                By Course
+              </Button>
+              <Button
+                variant={viewMode === 'all' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('all')}
+                className={viewMode === 'all' ? '' : 'hover:bg-gray-200'}
+              >
+                <List className="mr-2 h-4 w-4" />
+                View All
+              </Button>
+            </div>
+          </div>
 
       {/* Breadcrumb Navigation */}
       {viewMode === 'hierarchy' && hierarchyLevel !== 'courses' && (
@@ -484,6 +493,21 @@ export default function SubmissionsPage() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="mode-filter">Assessment Mode</Label>
+                <select
+                  id="mode-filter"
+                  value={filters.assessmentMode}
+                  onChange={(e) => setFilters(prev => ({ ...prev, assessmentMode: e.target.value }))}
+                  className="w-full px-3 py-2 border border-input rounded-md"
+                >
+                  <option value="">All</option>
+                  <option value="AI_ONLY">AI Only</option>
+                  <option value="MANUAL_ONLY">Manual Only</option>
+                  <option value="BOTH">Both</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="student-filter">Student Email</Label>
                 <Input
                   id="student-filter"
@@ -514,32 +538,15 @@ export default function SubmissionsPage() {
                 />
               </div>
 
-              <div className="flex items-end">
-                <Button onClick={applyFilters} className="w-full" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Clock className="mr-2 h-4 w-4 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="mr-2 h-4 w-4" />
-                      Apply
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              <div className="flex items-end">
+              <div className="flex items-end col-span-2">
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setFilters({ status: '', studentEmail: '', reviewStatus: '', dateFrom: '', dateTo: '' })
-                    loadSubmissions()
+                    setFilters({ status: '', studentEmail: '', reviewStatus: '', assessmentMode: '', dateFrom: '', dateTo: '' })
                   }}
                   className="w-full"
                 >
-                  Clear
+                  Clear All Filters
                 </Button>
               </div>
             </div>
@@ -779,6 +786,16 @@ export default function SubmissionsPage() {
             <CardTitle>All Submissions</CardTitle>
             <CardDescription>
               {displaySubmissions.length} submission{displaySubmissions.length !== 1 ? 's' : ''} across all courses
+              {filters.assessmentMode && (
+                <Badge variant="outline" className="ml-2">
+                  Mode: {filters.assessmentMode.replace('_', ' ')}
+                </Badge>
+              )}
+              {filters.status && (
+                <Badge variant="outline" className="ml-2">
+                  Status: {filters.status}
+                </Badge>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -911,6 +928,7 @@ export default function SubmissionsPage() {
           </CardContent>
         </Card>
       )}
+        </div>
     </div>
   )
 }

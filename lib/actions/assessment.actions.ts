@@ -13,6 +13,7 @@ const createQuestionSchema = z.object({
   title: z.string().min(1, 'Question title is required').max(200, 'Title too long'),
   description: z.string().min(1, 'Description is required'),
   submissionType: z.enum(['TEXT', 'DOCUMENT', 'GITHUB_REPO', 'SCREENSHOT', 'WEBSITE']),
+  assessmentMode: z.enum(['AI_ONLY', 'MANUAL_ONLY', 'BOTH']).default('AI_ONLY'),
   assessmentPrompt: z.string().optional(),
   criteria: z.array(z.string()).default([]),
   redFlags: z.array(z.string()).default([]),
@@ -34,6 +35,7 @@ export async function createQuestion(data: {
   title: string
   description: string
   submissionType: SubmissionType
+  assessmentMode?: 'AI_ONLY' | 'MANUAL_ONLY' | 'BOTH'
   assessmentPrompt?: string
   criteria: string[]
   redFlags: string[]
@@ -76,6 +78,7 @@ export async function createQuestion(data: {
         title: validatedData.title,
         description: validatedData.description,
         submissionType: validatedData.submissionType as SubmissionType,
+        assessmentMode: validatedData.assessmentMode || 'AI_ONLY',
         assessmentPrompt: validatedData.assessmentPrompt || null,
         criteria: validatedData.criteria.filter(c => c.trim() !== ''),
         redFlags: validatedData.redFlags.filter(r => r.trim() !== ''),
@@ -124,6 +127,7 @@ export async function updateQuestion(
     title: string
     description: string
     submissionType: SubmissionType
+    assessmentMode: 'AI_ONLY' | 'MANUAL_ONLY' | 'BOTH'
     assessmentPrompt: string
     criteria: string[]
     redFlags: string[]

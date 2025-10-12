@@ -36,7 +36,8 @@ interface SubmissionPageProps {
 }
 
 export default function SubmissionPage({ params }: SubmissionPageProps) {
-  const { courseName, assessmentNumber } = use(params);
+  const { courseName: rawCourseName, assessmentNumber } = use(params);
+  const courseName = decodeURIComponent(rawCourseName);
   const router = useRouter();
   const { data: session, isPending } = useSession();
   const [question, setQuestion] = useState<Question | null>(null);
@@ -107,8 +108,8 @@ export default function SubmissionPage({ params }: SubmissionPageProps) {
       const result = await submitAssessment(
         courseName,
         parseInt(assessmentNumber),
-        submissionContent,
-        question.submissionType
+        question.submissionType.toUpperCase(),
+        submissionContent
       );
 
       if (result.success && result.submissionId) {
@@ -426,7 +427,7 @@ onChange={(e) => handleGitHubUrlChange(e.target.value)}
               </AlertDescription>
             </Alert>
             <Button asChild className="mt-4">
-              <Link href={`/auth/signin?callbackUrl=${encodeURIComponent(`/submit/${courseName}/${assessmentNumber}`)}`}>
+              <Link href={`/auth/signin?callbackUrl=${encodeURIComponent(`/submit/${rawCourseName}/${assessmentNumber}`)}`}>
                 Sign In
               </Link>
             </Button>

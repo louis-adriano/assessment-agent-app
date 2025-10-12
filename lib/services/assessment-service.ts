@@ -74,8 +74,8 @@ export async function processAssessment(options: AssessmentOptions): Promise<Enh
       throw new Error('Assessment is not active for submissions')
     }
 
-    // Check if user is enrolled in the course
-    const enrollment = await prisma.courseEnrollment.findUnique({
+    // Check if user is enrolled in the course, auto-enroll if not
+    let enrollment = await prisma.courseEnrollment.findUnique({
       where: {
         courseId_userId: {
           courseId: question.course.id,
@@ -85,7 +85,13 @@ export async function processAssessment(options: AssessmentOptions): Promise<Enh
     })
 
     if (!enrollment) {
-      throw new Error('You are not enrolled in this course')
+      // Auto-enroll user when they submit
+      enrollment = await prisma.courseEnrollment.create({
+        data: {
+          courseId: question.course.id,
+          userId: userId
+        }
+      })
     }
 
     // Check for existing submission

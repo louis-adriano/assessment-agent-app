@@ -179,21 +179,13 @@ export default async function CoursesPage() {
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" size="sm" className="text-xs" asChild>
-                      <Link href={`/admin/courses/${course.id}`}>
-                        <Eye className="mr-1 h-3 w-3" />
-                        Manage
-                      </Link>
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-xs" asChild>
-                      <Link href={`/admin/courses/${course.id}/edit`}>
-                        <Edit className="mr-1 h-3 w-3" />
-                        Edit
-                      </Link>
-                    </Button>
-                  </div>
+                  {/* Action Button */}
+                  <Button variant="outline" size="sm" className="text-xs w-full" asChild>
+                    <Link href={`/admin/courses/${course.id}/edit`}>
+                      <Edit className="mr-1 h-3 w-3" />
+                      Manage Course
+                    </Link>
+                  </Button>
 
                   {/* Quick Preview Link */}
                   <Button variant="ghost" size="sm" className="w-full text-xs text-gray-600" asChild>

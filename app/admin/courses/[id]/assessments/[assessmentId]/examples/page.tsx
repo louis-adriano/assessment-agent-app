@@ -76,12 +76,19 @@ export default async function BaseExamplesPage({ params }: BaseExamplesPageProps
             Manage reference examples for <span className="font-medium">{question.title}</span>
           </p>
         </div>
-        <CreateBaseExampleDialog questionId={assessmentId} questionTitle={question.title}>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Example
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/admin/courses/${courseId}`}>
+              Skip for Now
+            </Link>
           </Button>
-        </CreateBaseExampleDialog>
+          <CreateBaseExampleDialog questionId={assessmentId} questionTitle={question.title}>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Example
+            </Button>
+          </CreateBaseExampleDialog>
+        </div>
       </div>
 
       {/* Course and Assessment Info */}

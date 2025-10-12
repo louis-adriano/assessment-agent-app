@@ -159,7 +159,7 @@ function SubmitPageContent() {
     try {
       const formData = new FormData()
       formData.append('courseName', course.name)
-      formData.append('assessmentNumber', question.questionNumber.toString())
+      formData.append('questionNumber', question.questionNumber.toString())
       
       if (['GITHUB_REPO', 'WEBSITE', 'TEXT'].includes(question.submissionType)) {
         formData.append('submissionContent', submissionData)
@@ -178,7 +178,7 @@ function SubmitPageContent() {
       // Extract data from formData and call submitAssessment
       const courseName = formData.get('courseName') as string
       const questionNumber = parseInt(formData.get('questionNumber') as string, 10)
-      const submissionType = formData.get('submissionType') as string
+      const submissionType = question?.submissionType || 'TEXT'
       const content = formData.get('submissionContent') as string
       const additionalInfo = formData.get('additionalInfo') as string | undefined
 

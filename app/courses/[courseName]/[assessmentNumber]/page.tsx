@@ -112,12 +112,6 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                   <span className="text-sm">Self-paced • Instant feedback</span>
                 </div>
               </div>
-              <Button className="bg-teal-600 hover:bg-teal-700 rounded-xl" asChild>
-                <Link href={`/submit/${encodeURIComponent(courseName)}/${assessmentNumber}`}>
-                  <Play className="mr-2 h-4 w-4" />
-                  Submit Assessment
-                </Link>
-              </Button>
             </div>
           </div>
         </header>
@@ -291,14 +285,30 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                   <div>
                     <h4 className="font-medium text-gray-900 mb-2">Assessment Features</h4>
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <CheckCircle className="h-4 w-4 text-teal-600" />
-                        <span>Instant AI feedback</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <CheckCircle className="h-4 w-4 text-teal-600" />
-                        <span>Base example comparison</span>
-                      </div>
+                      {(question.assessmentMode === 'AI_ONLY' || question.assessmentMode === 'BOTH') && (
+                        <>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <CheckCircle className="h-4 w-4 text-teal-600" />
+                            <span>Instant AI feedback</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <CheckCircle className="h-4 w-4 text-teal-600" />
+                            <span>Base example comparison</span>
+                          </div>
+                        </>
+                      )}
+                      {question.assessmentMode === 'MANUAL_ONLY' && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <CheckCircle className="h-4 w-4 text-amber-600" />
+                          <span>Instructor review and feedback</span>
+                        </div>
+                      )}
+                      {question.assessmentMode === 'BOTH' && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <CheckCircle className="h-4 w-4 text-purple-600" />
+                          <span>Instructor review after AI assessment</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <CheckCircle className="h-4 w-4 text-teal-600" />
                         <span>Detailed improvement suggestions</span>
@@ -331,29 +341,87 @@ export default async function QuestionDetailPage({ params }: QuestionDetailPageP
                       </div>
                     </div>
 
-                    <div className="flex gap-3">
-                      <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-xs shadow-lg">
-                        2
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm text-gray-900">AI Assessment</p>
-                        <p className="text-xs text-gray-600">
-                          Get instant feedback in 5-10 seconds
-                        </p>
-                      </div>
-                    </div>
+                    {question.assessmentMode === 'AI_ONLY' && (
+                      <>
+                        <div className="flex gap-3">
+                          <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-xs shadow-lg">
+                            2
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-900">AI Assessment</p>
+                            <p className="text-xs text-gray-600">
+                              Get instant feedback in 5-10 seconds
+                            </p>
+                          </div>
+                        </div>
 
-                    <div className="flex gap-3">
-                      <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-xs shadow-lg">
-                        3
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm text-gray-900">Review Results</p>
-                        <p className="text-xs text-gray-600">
-                          See your grade and improvement areas
-                        </p>
-                      </div>
-                    </div>
+                        <div className="flex gap-3">
+                          <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-xs shadow-lg">
+                            3
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-900">Review Results</p>
+                            <p className="text-xs text-gray-600">
+                              See your grade and improvement areas
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    {question.assessmentMode === 'MANUAL_ONLY' && (
+                      <>
+                        <div className="flex gap-3">
+                          <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-full font-semibold text-xs shadow-lg">
+                            2
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-900">Instructor Review</p>
+                            <p className="text-xs text-gray-600">
+                              Your work will be reviewed by an instructor
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-full font-semibold text-xs shadow-lg">
+                            3
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-900">Receive Feedback</p>
+                            <p className="text-xs text-gray-600">
+                              Get detailed manual feedback and grade
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    {question.assessmentMode === 'BOTH' && (
+                      <>
+                        <div className="flex gap-3">
+                          <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-xs shadow-lg">
+                            2
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-900">AI Assessment</p>
+                            <p className="text-xs text-gray-600">
+                              Get instant feedback in 5-10 seconds
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-full font-semibold text-xs shadow-lg">
+                            3
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-900">Instructor Review</p>
+                            <p className="text-xs text-gray-600">
+                              Then receive additional instructor feedback
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     <div className="flex gap-3">
                       <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full font-semibold text-xs shadow-lg">

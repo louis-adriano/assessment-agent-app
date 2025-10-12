@@ -30,12 +30,14 @@ interface Submission {
   assessmentResult: any
   manualFeedback: string | null
   manualScore: string | null
+  manualGrade: number | null
   reviewedAt: Date | null
   question: {
     id: string
     title: string
     questionNumber: number
     submissionType: string
+    assessmentMode: string
     course: {
       id: string
       name: string
@@ -43,7 +45,12 @@ interface Submission {
   }
 }
 
-function getStatusIcon(status: string) {
+function getStatusIcon(status: string, assessmentMode?: string, reviewedAt?: Date | null) {
+  // Show pending review icon for manual-only submissions
+  if (status === 'PENDING' && (assessmentMode === 'MANUAL_ONLY' || assessmentMode === 'BOTH')) {
+    return <FileEdit className="h-4 w-4 text-amber-600" />
+  }
+  
   switch (status) {
     case 'COMPLETED':
       return <CheckCircle className="h-4 w-4 text-green-600" />
@@ -56,7 +63,11 @@ function getStatusIcon(status: string) {
   }
 }
 
-function getStatusColor(status: string) {
+function getStatusColor(status: string, assessmentMode?: string) {
+  if (status === 'PENDING' && (assessmentMode === 'MANUAL_ONLY' || assessmentMode === 'BOTH')) {
+    return 'secondary'
+  }
+  
   switch (status) {
     case 'COMPLETED':
       return 'default'
@@ -268,6 +279,9 @@ export default function MySubmissionsPage() {
                     {submissions.map((submission) => {
                       const assessmentResult = submission.assessmentResult as any
                       const hasManualReview = !!submission.manualFeedback
+                      const assessmentMode = submission.question.assessmentMode
+                      const isPendingReview = submission.status === 'PENDING' && (assessmentMode === 'MANUAL_ONLY' || assessmentMode === 'BOTH')
+                      
                       return (
                         <div
                           key={submission.id}
@@ -276,17 +290,41 @@ export default function MySubmissionsPage() {
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
-                                {getStatusIcon(submission.status)}
+                                {getStatusIcon(submission.status, assessmentMode, submission.reviewedAt)}
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h4 className="font-medium text-sm">
                                     {submission.question.course.name} - Q{submission.question.questionNumber}
                                   </h4>
                                   <Badge
-                                    variant={getStatusColor(submission.status) as any}
+                                    variant={getStatusColor(submission.status, assessmentMode) as any}
                                     className="text-xs"
                                   >
-                                    {submission.status}
+                                    {isPendingReview ? 'Pending Review' : submission.status}
                                   </Badge>
+                                  
+                                  {/* Assessment Mode Badge */}
+                                  {assessmentMode === 'MANUAL_ONLY' && (
+                                    <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
+                                      <FileEdit className="h-3 w-3 mr-1" />
+                                      Manual
+                                    </Badge>
+                                  )}
+                                  {assessmentMode === 'BOTH' && (
+                                    <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-300">
+                                      AI + Manual
+                                    </Badge>
+                                  )}
+                                  
+                                  {/* Manual Review Badge */}
+                                  {hasManualReview && (
+                                    <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-300">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Reviewed
+                                      {submission.manualGrade !== null && submission.manualGrade !== undefined && (
+                                        <span className="ml-1">• {submission.manualGrade}%</span>
+                                      )}
+                                    </Badge>
+                                  )}
                                   {hasManualReview && (
                                     <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-300">
                                       <FileEdit className="mr-1 h-3 w-3" />

@@ -32,6 +32,7 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
     title: '',
     description: '',
     submissionType: '',
+    assessmentMode: 'AI_ONLY' as 'AI_ONLY' | 'MANUAL_ONLY' | 'BOTH',
     assessmentPrompt: '',
     guidance: ''
   })
@@ -80,6 +81,7 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
         title: formData.title,
         description: formData.description,
         submissionType: formData.submissionType as any,
+        assessmentMode: formData.assessmentMode,
         assessmentPrompt: formData.assessmentPrompt || undefined,
         criteria: formCriteria,
         redFlags: formRedFlags,
@@ -88,9 +90,13 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
       })
 
       if (result.success) {
-        toast.success('Assessment created! Now add base examples for AI grading.')
-        // Redirect to examples page to add base examples
-        router.push(`/admin/courses/${courseId}/assessments/${result.data.id}/examples`)
+        if (formData.assessmentMode === 'MANUAL_ONLY') {
+          toast.success('Manual assessment created successfully!')
+          router.push(`/admin/courses/${courseId}`)
+        } else {
+          toast.success('Assessment created! Now add base examples for AI grading.')
+          router.push(`/admin/courses/${courseId}/assessments/${result.data.id}/examples`)
+        }
       } else {
         toast.error(result.error || 'Failed to create assessment')
       }
@@ -199,6 +205,27 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="assessmentMode" className="text-base font-medium">
+                    Assessment Mode *
+                  </Label>
+                  <select
+                    id="assessmentMode"
+                    value={formData.assessmentMode}
+                    onChange={(e) => setFormData(prev => ({ ...prev, assessmentMode: e.target.value as any }))}
+                    className="w-full px-3 py-2 border border-input rounded-md text-base"
+                  >
+                    <option value="AI_ONLY">AI Only - Automatic grading by AI</option>
+                    <option value="MANUAL_ONLY">Manual Only - Instructor review required</option>
+                    <option value="BOTH">Both - AI assessment + instructor review</option>
+                  </select>
+                  <p className="text-sm text-gray-600">
+                    {formData.assessmentMode === 'AI_ONLY' && 'Submissions will be automatically graded by AI.'}
+                    {formData.assessmentMode === 'MANUAL_ONLY' && 'Submissions will only be reviewed manually by instructors. No AI grading.'}
+                    {formData.assessmentMode === 'BOTH' && 'Submissions will receive AI feedback immediately, then await instructor review.'}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="description" className="text-base font-medium">
                     Assessment Description *
                   </Label>
@@ -216,22 +243,24 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="assessmentPrompt" className="text-base font-medium">
-                    AI Assessment Prompt
-                  </Label>
-                  <Textarea
-                    id="assessmentPrompt"
-                    value={formData.assessmentPrompt}
-                    onChange={(e) => setFormData(prev => ({ ...prev, assessmentPrompt: e.target.value }))}
-                    rows={3}
-                    placeholder="Custom instructions for the AI assessor..."
-                    className="text-base"
-                  />
-                  <p className="text-sm text-gray-600">
-                    Optional: Provide specific instructions for how the AI should evaluate submissions.
-                  </p>
-                </div>
+                {formData.assessmentMode !== 'MANUAL_ONLY' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="assessmentPrompt" className="text-base font-medium">
+                      AI Assessment Prompt
+                    </Label>
+                    <Textarea
+                      id="assessmentPrompt"
+                      value={formData.assessmentPrompt}
+                      onChange={(e) => setFormData(prev => ({ ...prev, assessmentPrompt: e.target.value }))}
+                      rows={3}
+                      placeholder="Custom instructions for the AI assessor..."
+                      className="text-base"
+                    />
+                    <p className="text-sm text-gray-600">
+                      Optional: Provide specific instructions for how the AI should evaluate submissions.
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="guidance" className="text-base font-medium">
@@ -250,18 +279,20 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
                   </p>
                 </div>
 
-                {/* Enhanced Rubric Manager Component */}
-                <div className="border-t pt-6">
-                  <RubricManager
-                    criteria={formCriteria}
-                    redFlags={formRedFlags}
-                    conditionalChecks={formConditionalChecks}
-                    onCriteriaChange={setFormCriteria}
-                    onRedFlagsChange={setFormRedFlags}
-                    onConditionalChecksChange={setFormConditionalChecks}
-                    submissionType={formData.submissionType}
-                  />
-                </div>
+                {/* Enhanced Rubric Manager Component - Only for AI modes */}
+                {formData.assessmentMode !== 'MANUAL_ONLY' && (
+                  <div className="border-t pt-6">
+                    <RubricManager
+                      criteria={formCriteria}
+                      redFlags={formRedFlags}
+                      conditionalChecks={formConditionalChecks}
+                      onCriteriaChange={setFormCriteria}
+                      onRedFlagsChange={setFormRedFlags}
+                      onConditionalChecksChange={setFormConditionalChecks}
+                      submissionType={formData.submissionType}
+                    />
+                  </div>
+                )}
 
                 <div className="flex gap-3 pt-6">
                   <Button type="submit" className="flex-1" disabled={isSubmitting}>
@@ -273,7 +304,9 @@ export default function NewAssessmentPage({ params }: NewAssessmentPageProps) {
                     ) : (
                       <>
                         <CheckCircle className="mr-2 h-4 w-4" />
-                        Create & Add Examples
+                        {formData.assessmentMode === 'MANUAL_ONLY' 
+                          ? 'Create Assessment' 
+                          : 'Create & Add Examples'}
                       </>
                     )}
                   </Button>
