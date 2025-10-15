@@ -1,4 +1,5 @@
 import { sanitizeTextContent } from '../utils/sanitization';
+import { withCache, CacheKeys, CacheTTL } from '../utils/cache';
 
 export interface WebsiteInfo {
   url: string;
@@ -41,8 +42,22 @@ export interface WebsiteAssessmentData {
 export class WebsiteService {
   /**
    * Test website accessibility and functionality
+   * Cached for 30 minutes to reduce redundant checks
    */
   async testWebsite(url: string): Promise<WebsiteInfo> {
+    // Normalize URL for consistent cache keys
+    const normalizedUrl = this.normalizeUrl(url);
+    const cacheKey = CacheKeys.website(normalizedUrl);
+
+    return withCache(cacheKey, async () => {
+      return this._testWebsite(normalizedUrl);
+    }, CacheTTL.WEBSITE_TEST);
+  }
+
+  /**
+   * Internal method to test website (uncached)
+   */
+  private async _testWebsite(url: string): Promise<WebsiteInfo> {
     try {
       // Validate and normalize URL
       const normalizedUrl = this.normalizeUrl(url);

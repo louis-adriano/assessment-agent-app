@@ -29,7 +29,7 @@ export function Sidebar() {
   const user = session?.user as UserWithRole | undefined
 
   return (
-    <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:fixed lg:inset-y-0 bg-gradient-to-b from-gray-900 to-gray-800 shadow-2xl">
+    <aside className="flex flex-col w-72 fixed inset-y-0 bg-gradient-to-b from-gray-900 to-gray-800 shadow-2xl z-50">
       <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
         <div className="flex items-center flex-shrink-0 px-6 pb-5 border-b border-gray-700">
           <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">

@@ -16,7 +16,8 @@
       "Bash(findstr:*)",
       "Bash(xargs cat:*)",
       "Bash(cat:*)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []

@@ -275,35 +275,40 @@ export default function ResultsPage({ params }: Props) {
               <div className="lg:col-span-2 space-y-6">
                 {/* Manual Review Section - Show First for Manual Mode */}
                 {hasManualReview && (
-                  <Card className="border-2 border-emerald-300 shadow-lg bg-gradient-to-br from-emerald-50 to-white">
-                    <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-t-xl">
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <FileEdit className="h-5 w-5 text-teal-600" />
+                        Instructor Review
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2 text-xl">
-                          <Edit className="h-6 w-6" />
-                          Instructor Review
-                        </CardTitle>
+                        <div>
+                          <div className="text-4xl font-bold text-teal-600">
+                            {(submission as any).manualScore || 'N/A'}
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">Review Score</div>
+                        </div>
                         <div className="flex items-center gap-2">
-                          <Badge className="bg-white/20 text-white border-white/30">
-                            {(submission as any).manualScore}
-                          </Badge>
-                          {(submission as any).manualGrade !== null && (submission as any).manualGrade !== undefined && (
-                            <Badge className="bg-white text-emerald-600 font-bold">
-                              {(submission as any).manualGrade}%
-                            </Badge>
-                          )}
+                          <CheckCircle2 className="h-5 w-5 text-teal-600" />
+                          <span className="text-lg font-semibold">Complete</span>
                         </div>
                       </div>
-                      <div className="text-sm text-emerald-50 flex items-center gap-2 mt-2">
-                        <CheckCircle2 className="h-4 w-4" />
+
+                      {/* Timestamp */}
+                      <div className="text-sm text-gray-500">
                         Reviewed {(submission as any).reviewedAt && formatDistanceToNow(new Date((submission as any).reviewedAt), { addSuffix: true })}
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                      <div className="p-5 bg-white rounded-lg border-2 border-emerald-200 shadow-sm">
-                        <p className="text-gray-800 whitespace-pre-wrap leading-relaxed text-base">
-                          {(submission as any).manualFeedback}
-                        </p>
-                      </div>
+
+                      {/* Feedback */}
+                      {(submission as any).manualFeedback && (
+                        <div className="mt-4 p-4 bg-teal-50 border-l-4 border-teal-600 rounded-r">
+                          <p className="text-gray-800 leading-relaxed">
+                            {(submission as any).manualFeedback}
+                          </p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}

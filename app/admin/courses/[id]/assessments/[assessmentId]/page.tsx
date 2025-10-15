@@ -182,14 +182,7 @@ export default async function AssessmentDetailPage({ params }: AssessmentPagePro
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Link href={`/admin/courses/${courseId}/assessments/${assessmentId}/edit`}>
-              <Button>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Assessment
-              </Button>
-            </Link>
-          </div>
+          {/* Edit functionality to be added inline - for now, use course management page */}
         </div>
       </div>
 

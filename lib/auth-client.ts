@@ -4,7 +4,11 @@ import {
 
 
 export const authClient = createAuthClient({
-    baseURL: typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL,
+    baseURL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    // Fetch credentials for cross-origin requests
+    fetchOptions: {
+        credentials: 'include',
+    },
 })
 
 export const {

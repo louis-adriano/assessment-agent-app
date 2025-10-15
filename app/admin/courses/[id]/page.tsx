@@ -171,10 +171,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                         </div>
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" asChild>
-                            <Link href={`/admin/courses/${course.id}/assessments/${question.id}`}>View</Link>
-                          </Button>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/admin/courses/${course.id}/assessments/${question.id}/edit`}>Edit</Link>
+                            <Link href={`/admin/courses/${course.id}/assessments/${question.id}`}>View & Edit</Link>
                           </Button>
                         </div>
                       </div>

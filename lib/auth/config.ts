@@ -32,6 +32,7 @@ export const auth = betterAuth({
             }
         }
     },
+    // Allow all subpaths from trusted origins
     trustedOrigins: [
         "http://localhost:3000",
         "http://localhost:3001",

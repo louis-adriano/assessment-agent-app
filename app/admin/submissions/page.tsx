@@ -81,6 +81,8 @@ function getStatusIcon(status: string) {
   switch (status) {
     case 'COMPLETED':
       return <CheckCircle className="h-4 w-4 text-green-600" />
+    case 'PENDING':
+      return <Clock className="h-4 w-4 text-amber-600" />
     case 'PROCESSING':
       return <Clock className="h-4 w-4 text-blue-600 animate-spin" />
     case 'FAILED':
@@ -94,6 +96,8 @@ function getStatusColor(status: string) {
   switch (status) {
     case 'COMPLETED':
       return 'default'
+    case 'PENDING':
+      return 'secondary'
     case 'PROCESSING':
       return 'secondary'
     case 'FAILED':
@@ -464,31 +468,32 @@ export default function SubmissionsPage() {
           <CardContent>
             <div className="grid gap-4 md:grid-cols-7">
               <div className="space-y-2">
-                <Label htmlFor="status-filter">AI Status</Label>
+                <Label htmlFor="status-filter">Processing Status</Label>
                 <select
                   id="status-filter"
                   value={filters.status}
                   onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
                   className="w-full px-3 py-2 border border-input rounded-md"
                 >
-                  <option value="">All</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="PROCESSING">Processing</option>
-                  <option value="FAILED">Failed</option>
+                  <option value="">All Statuses</option>
+                  <option value="COMPLETED">✓ Completed (AI Done)</option>
+                  <option value="PENDING">⏳ Pending (Awaiting Manual)</option>
+                  <option value="PROCESSING">⚙️ Processing (AI Running)</option>
+                  <option value="FAILED">✗ Failed (Error)</option>
                 </select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="review-filter">Review Status</Label>
+                <Label htmlFor="review-filter">Manual Review</Label>
                 <select
                   id="review-filter"
                   value={filters.reviewStatus}
                   onChange={(e) => setFilters(prev => ({ ...prev, reviewStatus: e.target.value }))}
                   className="w-full px-3 py-2 border border-input rounded-md"
                 >
-                  <option value="">All</option>
-                  <option value="reviewed">Reviewed</option>
-                  <option value="pending">Pending Review</option>
+                  <option value="">All Reviews</option>
+                  <option value="reviewed">✓ Has Manual Feedback</option>
+                  <option value="pending">⏳ No Manual Feedback</option>
                 </select>
               </div>
 

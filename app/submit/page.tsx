@@ -120,9 +120,9 @@ function SubmitPageContent() {
           }
           
           if (question.submissionType === 'DOCUMENT') {
-            const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
+            const allowedTypes = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
             if (!allowedTypes.includes(file.type)) {
-              errors.push('Document must be PDF, Word document, or text file')
+              errors.push('Document must be Word document (.docx) or text file (.txt)')
             }
           } else if (question.submissionType === 'SCREENSHOT') {
             const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
@@ -296,12 +296,12 @@ function SubmitPageContent() {
             <Input
               id="document-file"
               type="file"
-              accept=".pdf,.doc,.docx,.txt"
+              accept=".docx,.txt"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
             <div className="text-sm text-muted-foreground">
               <Info className="h-4 w-4 inline mr-1" />
-              Accepted formats: PDF, Word documents, or text files (max 10MB)
+              Accepted formats: Word documents (.docx) or text files (.txt) - max 10MB
             </div>
           </div>
         )

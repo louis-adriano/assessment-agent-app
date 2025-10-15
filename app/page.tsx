@@ -67,6 +67,18 @@ export default async function HomePage() {
                     AI Assessment Portal
                   </p>
                 </div>
+
+                {/* Login CTA for non-authenticated users */}
+                {!session?.user && (
+                  <div className="pt-4">
+                    <Button asChild size="lg" className="bg-teal-600 hover:bg-teal-700 shadow-lg">
+                      <Link href="/auth/signin">
+                        Sign In to Get Started
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -120,21 +132,21 @@ export default async function HomePage() {
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {courses.map((course: any) => (
-                    <Card key={course.id} className="hover:shadow-xl transition-all hover:border-teal-500 border-l-4 border-l-teal-500 shadow-md rounded-2xl">
-                      <CardHeader>
+                    <Card key={course.id} className="hover:shadow-xl transition-all hover:border-teal-500 border-l-4 border-l-teal-500 shadow-md rounded-2xl flex flex-col h-full">
+                      <CardHeader className="flex-none">
                         <div className="flex items-start justify-between mb-3">
                           <Badge variant="secondary" className="text-xs bg-teal-100 text-teal-700">
                             {course.questions.length} Assessment{course.questions.length !== 1 ? 's' : ''}
                           </Badge>
                         </div>
                         <CardTitle className="text-lg line-clamp-1 group-hover:text-teal-600">{course.name}</CardTitle>
-                        <CardDescription className="line-clamp-2 text-sm">
+                        <CardDescription className="line-clamp-2 text-sm min-h-[2.5rem]">
                           {course.description}
                         </CardDescription>
                       </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
+                      <CardContent className="flex-1 flex flex-col">
+                        <div className="flex-1 space-y-4">
+                          <div className="space-y-2 min-h-[80px]">
                             {course.questions.slice(0, 2).map((question: any) => (
                               <div key={question.id} className="flex items-center gap-2 text-sm text-muted-foreground">
                                 {getSubmissionTypeIcon(question.submissionType)}
@@ -148,7 +160,7 @@ export default async function HomePage() {
                             )}
                           </div>
 
-                          <Button className="w-full bg-teal-600 hover:bg-teal-700" size="sm" asChild>
+                          <Button className="w-full bg-teal-600 hover:bg-teal-700 mt-auto" size="sm" asChild>
                             <Link href={`/courses/${encodeURIComponent(course.name)}`}>
                               View Course
                               <ArrowRight className="ml-2 h-4 w-4" />

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { BookOpen, FileText, Plus, Settings, Users, Eye, TrendingUp, Clock } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth/utils'
+import { requireAdmin } from '@/lib/auth/utils'
 
 async function getBasicStats() {
   try {
@@ -24,11 +24,8 @@ async function getBasicStats() {
 }
 
 export default async function AdminDashboard() {
-  const user = await getCurrentUser()
-
-  if (!user) {
-    return null
-  }
+  // Require admin role - redirects to /unauthorized if not admin
+  const user = await requireAdmin()
 
   const coursesResult = await getCoursesForUser(user)
   const courses = coursesResult.success ? coursesResult.data : []

@@ -217,13 +217,10 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/admin/courses/${course.id}/assessments/${question.id}`}>View</Link>
-                      </Button>
                       <Button size="sm" asChild>
-                        <Link href={`/admin/courses/${course.id}/assessments/${question.id}/edit`}>
+                        <Link href={`/admin/courses/${course.id}/assessments/${question.id}`}>
                           <Edit className="mr-2 h-4 w-4" />
-                          Edit
+                          View & Edit
                         </Link>
                       </Button>
                     </div>

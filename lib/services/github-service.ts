@@ -1,5 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import { safeBase64ToUtf8, sanitizeTextContent } from '../utils/sanitization';
+import { withCache, CacheKeys, CacheTTL } from '../utils/cache';
 
 export interface GitHubRepoInfo {
   owner: string;
@@ -106,8 +107,21 @@ export class GitHubService {
 
   /**
    * Fetch repository information using Git Tree API for complete structure
+   * Cached for 1 hour to reduce API calls and improve performance
    */
   async getRepositoryInfo(owner: string, repo: string): Promise<GitHubRepoInfo> {
+    // Use cache to avoid refetching same repo multiple times
+    const cacheKey = CacheKeys.github(owner, repo);
+
+    return withCache(cacheKey, async () => {
+      return this._fetchRepositoryInfo(owner, repo);
+    }, CacheTTL.GITHUB_REPO);
+  }
+
+  /**
+   * Internal method to fetch repository information (uncached)
+   */
+  private async _fetchRepositoryInfo(owner: string, repo: string): Promise<GitHubRepoInfo> {
     try {
       // Get repository basic info
       const { data: repoData } = await this.octokit.rest.repos.get({

@@ -14,6 +14,9 @@ import { screenshotService } from '@/lib/services/screenshot-service'
 import { getCourseByName } from './lookup-actions'
 import { sanitizeObject, sanitizeTextContent } from '@/lib/utils/sanitization'
 import { auth } from '@/lib/auth/config'
+import { retryWithBackoff, withTimeout, logError, createErrorResponse, categorizeError } from '@/lib/utils/error-handling'
+// Rate limiting for file uploads only (not submissions - those are unlimited for learning)
+import { checkRateLimit, RateLimits, getRateLimitKey } from '@/lib/utils/rate-limit'
 // import { SubmissionType, SubmissionStatus } from '@prisma/client'
 
 // Enhanced validation schema with GitHub URL support
@@ -91,6 +94,9 @@ export async function submitAssessment(
     const userId = session.user.id;
     console.log('📝 Starting submission:', { courseName, questionNumber, submissionType, contentLength: content.length, userId });
 
+    // NOTE: Submissions are UNLIMITED to support iterative learning
+    // Rate limiting only applied to file uploads to prevent storage abuse
+
     // Validate input with enhanced schema
     const validation = submissionSchema.safeParse({
       courseName,
@@ -147,46 +153,123 @@ export async function submitAssessment(
       };
     }
 
-    // For GitHub repos, validate URL before creating submission
+    // For GitHub repos, validate URL AND check if repo exists before creating submission
     if (question.submissionType === 'GITHUB_REPO') {
       console.log('🔍 Validating GitHub URL:', content);
-      
+
       // Clean up the URL
       let cleanUrl = content.trim();
       if (!cleanUrl.startsWith('http')) {
         cleanUrl = `https://${cleanUrl}`;
       }
-      
+
       // Enhanced GitHub URL validation
       if (!githubService.isValidGitHubUrl(cleanUrl)) {
-        return { 
-          success: false, 
-          error: 'Invalid GitHub repository URL. Please provide a valid GitHub repository link.' 
+        return {
+          success: false,
+          error: 'Invalid GitHub repository URL. Please provide a valid GitHub repository link.'
         };
       }
-      
-      // Try to parse the URL to ensure it's accessible
+
+      // Try to parse the URL
+      const parsed = githubService.parseGitHubUrl(cleanUrl);
+      if (!parsed) {
+        return {
+          success: false,
+          error: 'Could not parse GitHub repository URL. Please check the format.'
+        };
+      }
+      console.log('✅ GitHub URL parsed:', parsed);
+
+      // PRE-VALIDATION: Check if repository exists and is accessible (with retry and timeout)
       try {
-        const parsed = githubService.parseGitHubUrl(cleanUrl);
-        if (!parsed) {
-          return { 
-            success: false, 
-            error: 'Could not parse GitHub repository URL. Please check the format.' 
+        console.log('🔍 Checking if repository exists and is accessible...');
+
+        // Wrap with retry logic and 30-second timeout
+        await retryWithBackoff(
+          () => withTimeout(
+            githubService.getRepositoryInfo(parsed.owner, parsed.repo),
+            30000, // 30 second timeout
+            `GitHub repository check timed out for ${parsed.owner}/${parsed.repo}`
+          ),
+          {
+            maxRetries: 2,
+            initialDelayMs: 2000,
+            shouldRetry: (error) => {
+              // Only retry on network errors, not on 404
+              return error.retryable && error.category !== 'EXTERNAL_API';
+            },
+          }
+        );
+
+        console.log('✅ Repository exists and is accessible');
+      } catch (error) {
+        const appError = logError('GitHub repo validation', error, {
+          owner: parsed.owner,
+          repo: parsed.repo,
+        });
+
+        return createErrorResponse(error);
+      }
+
+      // Update content with the cleaned URL
+      content = cleanUrl;
+    }
+
+    // For Websites, validate URL AND check if site is accessible before creating submission
+    if (question.submissionType === 'WEBSITE') {
+      console.log('🔍 Validating website URL:', content);
+
+      // Clean up the URL
+      let cleanUrl = content.trim();
+      if (!cleanUrl.startsWith('http')) {
+        cleanUrl = `https://${cleanUrl}`;
+      }
+
+      // Validate URL format
+      if (!websiteService.isValidUrl(cleanUrl)) {
+        return {
+          success: false,
+          error: 'Invalid website URL. Please provide a valid URL (e.g., https://example.com).'
+        };
+      }
+
+      // PRE-VALIDATION: Check if website is accessible (with retry and timeout)
+      try {
+        console.log('🔍 Checking if website is accessible...');
+
+        const websiteInfo = await retryWithBackoff(
+          () => withTimeout(
+            websiteService.testWebsite(cleanUrl),
+            20000, // 20 second timeout
+            `Website accessibility check timed out for ${cleanUrl}`
+          ),
+          {
+            maxRetries: 2,
+            initialDelayMs: 1000,
+          }
+        );
+
+        if (!websiteInfo.isAccessible) {
+          return {
+            success: false,
+            error: `Website is not accessible (Status: ${websiteInfo.statusCode || 'Unknown'}). Please check the URL or ensure the website is online.`,
           };
         }
-        console.log('✅ GitHub URL parsed successfully:', parsed);
+
+        console.log('✅ Website is accessible');
       } catch (error) {
-        console.error('❌ GitHub URL parsing failed:', error);
-        return { 
-          success: false, 
-          error: 'Failed to validate GitHub repository URL.' 
-        };
+        const appError = logError('Website validation', error, { url: cleanUrl });
+        return createErrorResponse(error);
       }
-      
+
+      // Update content with the cleaned URL
+      content = cleanUrl;
+    }
+
     // Sanitize content early to prevent null bytes and other problematic characters
     content = sanitizeTextContent(content);
     console.log('🧹 Content sanitized for database safety');
-    }
 
     // Combine content and additional info, then sanitize everything
     const finalContent = additionalInfo 
@@ -232,29 +315,61 @@ export async function submitAssessment(
     let assessmentResult;
     
     try {
+      // All assessments wrapped with 120-second timeout
       if (question.submissionType === 'GITHUB_REPO') {
         console.log('🔍 Starting GitHub assessment...');
-        assessmentResult = await assessGitHubRepository(content, question, submission.id);
+        assessmentResult = await withTimeout(
+          assessGitHubRepository(content, question, submission.id),
+          120000, // 2 minutes
+          'GitHub assessment timed out'
+        );
         console.log('✅ GitHub assessment completed');
       } else if (question.submissionType === 'DOCUMENT') {
         console.log('📄 Starting document assessment...');
-        assessmentResult = await assessDocument(content, question, submission.id);
+        assessmentResult = await withTimeout(
+          assessDocument(content, question, submission.id),
+          120000,
+          'Document assessment timed out'
+        );
         console.log('✅ Document assessment completed');
       } else if (question.submissionType === 'WEBSITE') {
         console.log('🌐 Starting website assessment...');
-        assessmentResult = await assessWebsite(content, question, submission.id);
+        assessmentResult = await withTimeout(
+          assessWebsite(content, question, submission.id),
+          120000,
+          'Website assessment timed out'
+        );
         console.log('✅ Website assessment completed');
       } else if (question.submissionType === 'SCREENSHOT') {
         console.log('📸 Starting screenshot assessment...');
-        assessmentResult = await assessScreenshot(content, question, submission.id);
+        assessmentResult = await withTimeout(
+          assessScreenshot(content, question, submission.id),
+          120000,
+          'Screenshot assessment timed out'
+        );
         console.log('✅ Screenshot assessment completed');
       } else {
         console.log('🔍 Starting regular assessment...');
-        assessmentResult = await processAssessment({
-          userId: userId,
-          questionId: question.id,
-          submissionContent: finalContent,
-        });
+        // Don't use processAssessment - it creates duplicate submissions
+        // Instead, call the LLM service directly
+        const { assessSubmission } = await import('@/lib/services/llm-service');
+
+        assessmentResult = await withTimeout(
+          assessSubmission({
+            submissionContent: finalContent,
+            submissionType: question.submissionType as any,
+            questionTitle: question.title,
+            questionDescription: question.description,
+            assessmentPrompt: question.assessmentPrompt || undefined,
+            criteria: question.criteria,
+            redFlags: question.redFlags,
+            conditionalChecks: question.conditionalChecks,
+            baseExampleContent: question.baseExamples[0]?.content,
+            baseExampleMetadata: question.baseExamples[0]?.metadata
+          }),
+          120000,
+          'Assessment timed out'
+        );
         console.log('✅ Regular assessment completed');
       }
 
@@ -264,23 +379,32 @@ export async function submitAssessment(
       console.log('🛡️ Final assessment result sanitized');
 
       // Update submission with assessment results
+      // For BOTH mode, keep as PENDING since manual review is still needed
+      // For AI_ONLY mode, mark as COMPLETED
+      const finalStatus = assessmentMode === 'BOTH' ? 'PENDING' : 'COMPLETED';
+
       await prisma.submission.update({
         where: { id: submission.id },
         data: {
-          status: 'COMPLETED',
+          status: finalStatus,
           assessmentResult: sanitizedAssessmentResult as any,
           processedAt: new Date(),
         },
       });
 
+      console.log(`✅ Submission status set to ${finalStatus} (mode: ${assessmentMode})`);
+
       console.log('✅ Assessment saved to database');
 
     } catch (assessmentError) {
-      console.error('❌ Assessment failed:', assessmentError);
-      
-      const errorMessage = assessmentError instanceof Error ? assessmentError.message : 'Unknown error';
-      const sanitizedErrorMessage = sanitizeTextContent(errorMessage);
-      
+      const appError = logError('AI Assessment', assessmentError, {
+        submissionId: submission.id,
+        questionId: question.id,
+        submissionType: question.submissionType,
+      });
+
+      const sanitizedErrorMessage = sanitizeTextContent(appError.userMessage);
+
       // Update submission with error result
       await prisma.submission.update({
         where: { id: submission.id },
@@ -288,7 +412,7 @@ export async function submitAssessment(
           status: 'FAILED',
           assessmentResult: {
             remark: 'Needs Improvement',
-            feedback: `Assessment failed: ${sanitizedErrorMessage}`,
+            feedback: `Assessment failed: ${sanitizedErrorMessage}. ${appError.retryable ? 'Please try again.' : 'Please contact support if the issue persists.'}`,
             criteria_met: [],
             areas_for_improvement: ['Submission processing'],
             confidence: 0.1,
@@ -324,11 +448,8 @@ export async function submitAssessment(
     };
 
   } catch (error) {
-    console.error('❌ Submission error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to submit assessment',
-    };
+    logError('Submission', error, { courseName, questionNumber, submissionType });
+    return createErrorResponse(error);
   }
 }
 
@@ -417,10 +538,18 @@ Provide specific examples from the code when pointing out strengths or areas for
     `;
 
     // Get AI assessment with GitHub-specific prompt
-    const assessment = await processAssessment({
-      userId: await getUserIdFromSubmission(submissionId),
-      questionId: question.id,
+    // Don't use processAssessment - it creates duplicate submissions
+    const { assessSubmission } = await import('@/lib/services/llm-service');
+
+    const assessment = await assessSubmission({
       submissionContent: githubPrompt,
+      submissionType: 'TEXT', // Process as text since we've extracted repo info
+      questionTitle: question.title,
+      questionDescription: question.description,
+      assessmentPrompt: question.assessmentPrompt || undefined,
+      criteria: question.criteria,
+      redFlags: question.redFlags,
+      conditionalChecks: question.conditionalChecks,
     });
 
     // Enhance feedback with GitHub-specific insights
@@ -564,10 +693,18 @@ Provide specific feedback on strengths and areas for improvement.
     `;
 
     // Get AI assessment with document-specific prompt
-    const assessment = await processAssessment({
-      userId: await getUserIdFromSubmission(submissionId),
-      questionId: question.id,
+    // Don't use processAssessment - it creates duplicate submissions
+    const { assessSubmission } = await import('@/lib/services/llm-service');
+
+    const assessment = await assessSubmission({
       submissionContent: documentPrompt,
+      submissionType: 'TEXT', // Process as text since we've extracted content
+      questionTitle: question.title,
+      questionDescription: question.description,
+      assessmentPrompt: question.assessmentPrompt || undefined,
+      criteria: question.criteria,
+      redFlags: question.redFlags,
+      conditionalChecks: question.conditionalChecks,
     });
 
     // Enhance feedback with document-specific insights
@@ -662,10 +799,18 @@ Provide specific feedback based on the technical analysis above.
     `;
 
     // Get AI assessment
-    const assessment = await processAssessment({
-      userId: await getUserIdFromSubmission(submissionId),
-      questionId: question.id,
+    // Don't use processAssessment - it creates duplicate submissions
+    const { assessSubmission } = await import('@/lib/services/llm-service');
+
+    const assessment = await assessSubmission({
       submissionContent: websitePrompt,
+      submissionType: 'TEXT',
+      questionTitle: question.title,
+      questionDescription: question.description,
+      assessmentPrompt: question.assessmentPrompt || undefined,
+      criteria: question.criteria,
+      redFlags: question.redFlags,
+      conditionalChecks: question.conditionalChecks,
     });
 
     // Enhance feedback with website-specific insights
@@ -785,10 +930,18 @@ ${!screenshotInfo ? 'Note: The submission is a URL or description. Assess based 
     `;
 
     // Get AI assessment
-    const assessment = await processAssessment({
-      userId: await getUserIdFromSubmission(submissionId),
-      questionId: question.id,
+    // Don't use processAssessment - it creates duplicate submissions
+    const { assessSubmission } = await import('@/lib/services/llm-service');
+
+    const assessment = await assessSubmission({
       submissionContent: screenshotPrompt,
+      submissionType: 'TEXT',
+      questionTitle: question.title,
+      questionDescription: question.description,
+      assessmentPrompt: question.assessmentPrompt || undefined,
+      criteria: question.criteria,
+      redFlags: question.redFlags,
+      conditionalChecks: question.conditionalChecks,
     });
 
     // Enhance feedback
