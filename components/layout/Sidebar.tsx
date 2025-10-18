@@ -27,6 +27,12 @@ export function Sidebar() {
   }
 
   const user = session?.user as UserWithRole | undefined
+  
+  // Get proper callback URL for signin
+  const getSignInUrl = () => {
+    const callback = pathname && !pathname.includes('/auth/') ? pathname : '/courses'
+    return `/auth/signin?callbackUrl=${encodeURIComponent(callback)}`
+  }
 
   return (
     <aside className="flex flex-col w-72 fixed inset-y-0 bg-gradient-to-b from-gray-900 to-gray-800 shadow-2xl z-50">
@@ -134,7 +140,7 @@ export function Sidebar() {
                       <User className="h-5 w-5 text-white" />
                     </div>
                     <Button variant="link" className="text-teal-400 hover:text-teal-300 p-0 h-auto font-medium" asChild>
-                      <Link href="/auth/signin">
+                      <Link href={getSignInUrl()}>
                         Sign In
                       </Link>
                     </Button>

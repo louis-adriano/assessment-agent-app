@@ -72,7 +72,7 @@ export default async function HomePage() {
                 {!session?.user && (
                   <div className="pt-4">
                     <Button asChild size="lg" className="bg-teal-600 hover:bg-teal-700 shadow-lg">
-                      <Link href="/auth/signin">
+                      <Link href="/auth/signin?callbackUrl=/courses">
                         Sign In to Get Started
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Link>

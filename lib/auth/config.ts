@@ -32,6 +32,18 @@ export const auth = betterAuth({
             }
         }
     },
+    session: {
+        cookieCache: {
+            enabled: true,
+            maxAge: 5 * 60, // Cache for 5 minutes
+        },
+    },
+    advanced: {
+        useSecureCookies: process.env.NODE_ENV === "production",
+        crossSubDomainCookies: {
+            enabled: true,
+        },
+    },
     // Allow all subpaths from trusted origins
     trustedOrigins: [
         "http://localhost:3000",

@@ -147,7 +147,7 @@ export default function MySubmissionsPage() {
                   className="bg-teal-600 hover:bg-teal-700 rounded-xl"
                   asChild
                 >
-                  <Link href="/auth/signin">
+                  <Link href="/auth/signin?callbackUrl=/my-submissions">
                     <LogIn className="mr-2 h-4 w-4" />
                     Log In
                   </Link>

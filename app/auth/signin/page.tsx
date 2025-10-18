@@ -13,7 +13,9 @@ import { useSearchParams } from "next/navigation";
 
 function SignInForm() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  // Get callback URL with fallback to referrer or home
+  const callbackUrl = searchParams.get("callbackUrl") || 
+                      (typeof window !== 'undefined' && document.referrer && !document.referrer.includes('/auth/') ? document.referrer : "/");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -139,11 +141,23 @@ function SignInForm() {
               <Button
                 variant="outline"
                 type="button"
+                disabled={loading}
                 onClick={async () => {
-                  await signIn.social({
-                    provider: "github",
-                    callbackURL: callbackUrl,
-                  });
+                  try {
+                    setLoading(true);
+                    setError("");
+                    // Store callback in session storage as backup
+                    if (typeof window !== 'undefined') {
+                      sessionStorage.setItem('auth_callback', callbackUrl);
+                    }
+                    await signIn.social({
+                      provider: "github",
+                      callbackURL: callbackUrl,
+                    });
+                  } catch (err) {
+                    setError("GitHub sign in failed. Please try again.");
+                    setLoading(false);
+                  }
                 }}
               >
                 <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
@@ -154,11 +168,23 @@ function SignInForm() {
               <Button
                 variant="outline"
                 type="button"
+                disabled={loading}
                 onClick={async () => {
-                  await signIn.social({
-                    provider: "google",
-                    callbackURL: callbackUrl,
-                  });
+                  try {
+                    setLoading(true);
+                    setError("");
+                    // Store callback in session storage as backup
+                    if (typeof window !== 'undefined') {
+                      sessionStorage.setItem('auth_callback', callbackUrl);
+                    }
+                    await signIn.social({
+                      provider: "google",
+                      callbackURL: callbackUrl,
+                    });
+                  } catch (err) {
+                    setError("Google sign in failed. Please try again.");
+                    setLoading(false);
+                  }
                 }}
               >
                 <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">

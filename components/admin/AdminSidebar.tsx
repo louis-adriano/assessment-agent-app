@@ -49,7 +49,7 @@ export default function AdminSidebar({ user }: AdminSidebarProps) {
 
   const handleSignOut = async () => {
     await signOut()
-    router.push('/auth/signin')
+    router.push('/auth/signin?callbackUrl=/admin')
   }
 
   return (

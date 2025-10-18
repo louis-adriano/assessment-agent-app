@@ -107,10 +107,22 @@ export async function processAssessment(options: AssessmentOptions): Promise<Enh
     if (existingSubmission && !forceReassessment) {
       // Return existing assessment - safely cast the Json type
       const assessmentResult = existingSubmission.assessmentResult as any
-      
+
       return {
         remark: assessmentResult?.remark || 'Can Improve',
         feedback: assessmentResult?.feedback || 'No feedback available',
+        detailedFeedback: assessmentResult?.detailedFeedback || {
+          summary: assessmentResult?.feedback || 'No detailed feedback available',
+          strengths: [],
+          weaknesses: assessmentResult?.areas_for_improvement || [],
+          recommendations: []
+        },
+        scoreBreakdown: assessmentResult?.scoreBreakdown || {
+          contentQuality: 0,
+          completeness: 0,
+          technicalAccuracy: 0,
+          structure: 0
+        },
         criteria_met: assessmentResult?.criteria_met || [],
         areas_for_improvement: assessmentResult?.areas_for_improvement || [],
         confidence: assessmentResult?.confidence || 0.5,

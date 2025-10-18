@@ -35,7 +35,20 @@ export enum AssessmentComplexity {
 // Assessment result structure
 export interface AssessmentResult {
   remark: 'Excellent' | 'Good' | 'Can Improve' | 'Needs Improvement'
-  feedback: string
+  feedback: string // Keep for backward compatibility
+  detailedFeedback: {
+    summary: string // Comprehensive overview (4-6 sentences)
+    strengths: string[] // Specific strengths with examples
+    weaknesses: string[] // Specific weaknesses with examples
+    recommendations: string[] // Actionable next steps
+    comparisonToExample?: string // How it compares to perfect example
+  }
+  scoreBreakdown: {
+    contentQuality: number // 0-100
+    completeness: number // 0-100
+    technicalAccuracy: number // 0-100
+    structure: number // 0-100
+  }
   criteria_met: string[]
   areas_for_improvement: string[]
   confidence: number
@@ -225,11 +238,71 @@ Please provide your assessment in the following JSON format:
 
 {
   "remark": "Excellent|Good|Can Improve|Needs Improvement",
-  "feedback": "Detailed, constructive feedback (2-3 sentences max). Be specific and actionable.",
+  "feedback": "Brief summary (2-3 sentences for backward compatibility)",
+  "detailedFeedback": {
+    "summary": "Comprehensive 4-6 sentence overview analyzing the overall quality, approach, and results of this submission",
+    "strengths": [
+      "Specific strength with concrete example from the submission",
+      "Another strength with specific reference to what was done well",
+      "At least 2-4 strengths total"
+    ],
+    "weaknesses": [
+      "Specific weakness with concrete example of what's missing or incorrect",
+      "Another weakness with clear explanation of the issue",
+      "At least 2-4 weaknesses total (or empty array if excellent)"
+    ],
+    "recommendations": [
+      "Actionable step: 'Try doing X to improve Y'",
+      "Specific technique: 'Consider using Z approach for better results'",
+      "Resource suggestion: 'Review topic A to strengthen understanding of B'",
+      "At least 3-5 concrete, actionable recommendations"
+    ],
+    "comparisonToExample": "Only if base example exists: 2-3 sentences comparing student work to the perfect example, highlighting what matched well and what differed"
+  },
+  "scoreBreakdown": {
+    "contentQuality": 85,
+    "completeness": 90,
+    "technicalAccuracy": 80,
+    "structure": 88
+  },
   "criteria_met": ["List of criteria that were successfully met"],
   "areas_for_improvement": ["Specific areas where the student can improve"],
   "confidence": 0.85
 }
+
+**DETAILED FEEDBACK INSTRUCTIONS:**
+
+1. **Summary**: Write a thorough 4-6 sentence analysis that:
+   - Opens with an overall assessment of the submission quality
+   - Identifies the main approach or strategy used
+   - Highlights the most significant strengths
+   - Notes the most critical areas for improvement
+   - Ends with encouragement or guidance for next steps
+
+2. **Strengths**: Provide 2-4 specific strengths that:
+   - Reference concrete examples from the submission
+   - Explain WHY it's a strength (not just "good job")
+   - Connect to learning objectives or best practices
+   - Be specific, not generic (bad: "Good work", good: "Excellent use of async/await for handling asynchronous GitHub API calls, which prevents callback hell")
+
+3. **Weaknesses**: Provide 2-4 specific weaknesses that:
+   - Point to exact issues or omissions
+   - Explain the impact or why it matters
+   - Are constructive, not discouraging
+   - Be specific with examples (bad: "Needs improvement", good: "Missing error handling for network failures, which could cause the app to crash when GitHub API is unavailable")
+
+4. **Recommendations**: Provide 3-5 actionable recommendations that:
+   - Start with action verbs (Try, Consider, Add, Review, Refactor, etc.)
+   - Are specific and implementable
+   - Prioritize high-impact improvements
+   - Include learning resources when relevant
+   - Example: "Add try-catch blocks around API calls to handle network errors gracefully"
+
+5. **Score Breakdown** (0-100 for each):
+   - **contentQuality**: Depth, insight, and overall quality of the work
+   - **completeness**: How fully the requirements were addressed
+   - **technicalAccuracy**: Correctness of facts, code, concepts
+   - **structure**: Organization, clarity, logical flow
 
 **ASSESSMENT GUIDELINES:**
 - "Excellent": Exceeds expectations, meets all criteria with exceptional quality
@@ -237,8 +310,7 @@ Please provide your assessment in the following JSON format:
 - "Can Improve": Meets some criteria but has notable gaps or issues
 - "Needs Improvement": Fails to meet most criteria, significant issues present
 
-Confidence should be between 0.5 and 1.0 based on how certain you are about the assessment.
-Provide specific, actionable feedback that helps the student improve.
+**CRITICAL**: Be specific, use examples from the submission, and make feedback actionable. Avoid generic praise or vague criticism.
 `
 
   return prompt
@@ -446,16 +518,48 @@ export async function assessSubmission(request: AssessmentRequest): Promise<Asse
     }
 
     // Ensure arrays are actually arrays
-    assessmentData.criteria_met = Array.isArray(assessmentData.criteria_met) 
-      ? assessmentData.criteria_met 
-      : []
-    
-    assessmentData.areas_for_improvement = Array.isArray(assessmentData.areas_for_improvement) 
-      ? assessmentData.areas_for_improvement 
+    assessmentData.criteria_met = Array.isArray(assessmentData.criteria_met)
+      ? assessmentData.criteria_met
       : []
 
+    assessmentData.areas_for_improvement = Array.isArray(assessmentData.areas_for_improvement)
+      ? assessmentData.areas_for_improvement
+      : []
+
+    // Validate and sanitize detailedFeedback
+    const detailedFeedback = assessmentData.detailedFeedback || {
+      summary: assessmentData.feedback || 'No detailed feedback available',
+      strengths: [],
+      weaknesses: assessmentData.areas_for_improvement || [],
+      recommendations: []
+    }
+
+    // Ensure detailedFeedback arrays are valid
+    detailedFeedback.strengths = Array.isArray(detailedFeedback.strengths) ? detailedFeedback.strengths : []
+    detailedFeedback.weaknesses = Array.isArray(detailedFeedback.weaknesses) ? detailedFeedback.weaknesses : []
+    detailedFeedback.recommendations = Array.isArray(detailedFeedback.recommendations) ? detailedFeedback.recommendations : []
+
+    // Validate and sanitize scoreBreakdown
+    const scoreBreakdown = assessmentData.scoreBreakdown || {
+      contentQuality: 0,
+      completeness: 0,
+      technicalAccuracy: 0,
+      structure: 0
+    }
+
+    // Ensure scores are valid numbers between 0-100
+    const sanitizeScore = (score: any) => {
+      const num = typeof score === 'number' ? score : 0
+      return Math.max(0, Math.min(100, num))
+    }
+
+    scoreBreakdown.contentQuality = sanitizeScore(scoreBreakdown.contentQuality)
+    scoreBreakdown.completeness = sanitizeScore(scoreBreakdown.completeness)
+    scoreBreakdown.technicalAccuracy = sanitizeScore(scoreBreakdown.technicalAccuracy)
+    scoreBreakdown.structure = sanitizeScore(scoreBreakdown.structure)
+
     // Validate confidence score
-    const confidence = typeof assessmentData.confidence === 'number' 
+    const confidence = typeof assessmentData.confidence === 'number'
       ? Math.max(0.5, Math.min(1.0, assessmentData.confidence))
       : 0.75 // Default confidence
 
@@ -464,6 +568,14 @@ export async function assessSubmission(request: AssessmentRequest): Promise<Asse
     const result = {
       remark: assessmentData.remark,
       feedback: sanitizeForDatabase(assessmentData.feedback),
+      detailedFeedback: {
+        summary: sanitizeForDatabase(detailedFeedback.summary || ''),
+        strengths: detailedFeedback.strengths.map((item: string) => sanitizeForDatabase(item)),
+        weaknesses: detailedFeedback.weaknesses.map((item: string) => sanitizeForDatabase(item)),
+        recommendations: detailedFeedback.recommendations.map((item: string) => sanitizeForDatabase(item)),
+        comparisonToExample: detailedFeedback.comparisonToExample ? sanitizeForDatabase(detailedFeedback.comparisonToExample) : undefined
+      },
+      scoreBreakdown,
       criteria_met: assessmentData.criteria_met.map((item: string) => sanitizeForDatabase(item)),
       areas_for_improvement: assessmentData.areas_for_improvement.map((item: string) => sanitizeForDatabase(item)),
       confidence,
@@ -481,12 +593,24 @@ export async function assessSubmission(request: AssessmentRequest): Promise<Asse
 
   } catch (error) {
     console.error('Assessment error:', error)
-    
+
     // Return a fallback assessment
     const processingTime = Date.now() - startTime
     return {
       remark: 'Can Improve',
       feedback: 'Assessment could not be completed due to a technical error. Please try submitting again or contact support.',
+      detailedFeedback: {
+        summary: 'We encountered a technical error while assessing your submission. This does not reflect the quality of your work. Please try resubmitting, and if the issue persists, contact support for assistance.',
+        strengths: [],
+        weaknesses: ['Technical error prevented assessment'],
+        recommendations: ['Please resubmit your work', 'If error persists, contact support', 'Ensure your submission meets the format requirements']
+      },
+      scoreBreakdown: {
+        contentQuality: 0,
+        completeness: 0,
+        technicalAccuracy: 0,
+        structure: 0
+      },
       criteria_met: [],
       areas_for_improvement: ['Please resubmit your work for proper assessment'],
       confidence: 0.5,

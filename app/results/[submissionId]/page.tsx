@@ -42,6 +42,7 @@ export default function ResultsPage({ params }: Props) {
   const [submission, setSubmission] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [submissionId, setSubmissionId] = useState<string>('')
   const { data: session } = useSession()
 
   const isAdmin = (session?.user as any)?.role === 'SUPER_ADMIN' || (session?.user as any)?.role === 'COURSE_ADMIN'
@@ -50,6 +51,7 @@ export default function ResultsPage({ params }: Props) {
     async function loadSubmission() {
       try {
         const resolvedParams = await params
+        setSubmissionId(resolvedParams.submissionId)
         const result = await getAnonymousSubmissionResult(resolvedParams.submissionId)
 
         if (!result) {
@@ -359,8 +361,94 @@ export default function ResultsPage({ params }: Props) {
                         />
                       </div>
 
-                      {/* Feedback */}
-                      {assessmentResult.feedback && (
+                      {/* Detailed Feedback */}
+                      {assessmentResult.detailedFeedback?.summary && (
+                        <div className="mt-4 space-y-4">
+                          {/* Summary */}
+                          <div className="p-4 bg-teal-50 border-l-4 border-teal-600 rounded-r">
+                            <p className="text-gray-800 leading-relaxed">
+                              {assessmentResult.detailedFeedback.summary}
+                            </p>
+                          </div>
+
+                          {/* Score Breakdown */}
+                          {assessmentResult.scoreBreakdown && (
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <div className="text-xs text-gray-600 mb-1">Content Quality</div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-teal-600 transition-all"
+                                      style={{ width: `${assessmentResult.scoreBreakdown.contentQuality}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-sm font-semibold text-gray-700">
+                                    {assessmentResult.scoreBreakdown.contentQuality}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <div className="text-xs text-gray-600 mb-1">Completeness</div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-blue-600 transition-all"
+                                      style={{ width: `${assessmentResult.scoreBreakdown.completeness}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-sm font-semibold text-gray-700">
+                                    {assessmentResult.scoreBreakdown.completeness}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <div className="text-xs text-gray-600 mb-1">Technical Accuracy</div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-purple-600 transition-all"
+                                      style={{ width: `${assessmentResult.scoreBreakdown.technicalAccuracy}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-sm font-semibold text-gray-700">
+                                    {assessmentResult.scoreBreakdown.technicalAccuracy}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <div className="text-xs text-gray-600 mb-1">Structure</div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-indigo-600 transition-all"
+                                      style={{ width: `${assessmentResult.scoreBreakdown.structure}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-sm font-semibold text-gray-700">
+                                    {assessmentResult.scoreBreakdown.structure}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Comparison to Example */}
+                          {assessmentResult.detailedFeedback.comparisonToExample && (
+                            <div className="p-4 bg-purple-50 border-l-4 border-purple-600 rounded-r">
+                              <div className="text-xs font-semibold text-purple-900 mb-2">
+                                Comparison to Perfect Example
+                              </div>
+                              <p className="text-sm text-gray-700 leading-relaxed">
+                                {assessmentResult.detailedFeedback.comparisonToExample}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Fallback to old feedback if no detailed feedback */}
+                      {!assessmentResult.detailedFeedback?.summary && assessmentResult.feedback && (
                         <div className="mt-4 p-4 bg-teal-50 border-l-4 border-teal-600 rounded-r">
                           <p className="text-gray-800 leading-relaxed">
                             {assessmentResult.feedback}
@@ -371,8 +459,91 @@ export default function ResultsPage({ params }: Props) {
                   </Card>
                 )}
 
-                {/* Strengths & Areas to Improve */}
-                {assessmentResult?.criteriaMetAndBroke && (
+                {/* Detailed Strengths, Weaknesses, and Recommendations */}
+                {assessmentResult?.detailedFeedback && (
+                  <div className="space-y-4">
+                    {/* Strengths */}
+                    {assessmentResult.detailedFeedback.strengths?.length > 0 && (
+                      <Card className="border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base flex items-center gap-2 text-green-800">
+                            <CheckCircle2 className="h-5 w-5" />
+                            What You Did Well
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-3">
+                            {assessmentResult.detailedFeedback.strengths.map((strength: string, index: number) => (
+                              <li key={index} className="flex items-start gap-3">
+                                <div className="mt-0.5 flex-shrink-0">
+                                  <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
+                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                  </div>
+                                </div>
+                                <span className="text-sm text-gray-700 leading-relaxed">{strength}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Weaknesses */}
+                    {assessmentResult.detailedFeedback.weaknesses?.length > 0 && (
+                      <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base flex items-center gap-2 text-orange-800">
+                            <AlertCircle className="h-5 w-5" />
+                            Areas That Need Work
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-3">
+                            {assessmentResult.detailedFeedback.weaknesses.map((weakness: string, index: number) => (
+                              <li key={index} className="flex items-start gap-3">
+                                <div className="mt-0.5 flex-shrink-0">
+                                  <div className="h-6 w-6 rounded-full bg-orange-100 flex items-center justify-center">
+                                    <AlertCircle className="h-4 w-4 text-orange-600" />
+                                  </div>
+                                </div>
+                                <span className="text-sm text-gray-700 leading-relaxed">{weakness}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Recommendations */}
+                    {assessmentResult.detailedFeedback.recommendations?.length > 0 && (
+                      <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base flex items-center gap-2 text-blue-800">
+                            <TrendingUp className="h-5 w-5" />
+                            How to Improve
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-3">
+                            {assessmentResult.detailedFeedback.recommendations.map((recommendation: string, index: number) => (
+                              <li key={index} className="flex items-start gap-3">
+                                <div className="mt-0.5 flex-shrink-0">
+                                  <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <span className="text-xs font-bold text-blue-600">{index + 1}</span>
+                                  </div>
+                                </div>
+                                <span className="text-sm text-gray-700 leading-relaxed">{recommendation}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+
+                {/* Fallback to old criteria format if no detailed feedback */}
+                {!assessmentResult?.detailedFeedback && assessmentResult?.criteriaMetAndBroke && (
                   <div className="grid md:grid-cols-2 gap-4">
                     {assessmentResult.criteriaMetAndBroke.criteriaMet?.length > 0 && (
                       <Card className="border-green-200 bg-green-50">
@@ -470,7 +641,7 @@ export default function ResultsPage({ params }: Props) {
                           </div>
                           <div className="flex flex-col gap-2">
                             <Button size="sm" className="bg-teal-600 hover:bg-teal-700 w-full" asChild>
-                              <Link href="/auth/signin">
+                              <Link href={`/auth/signin?callbackUrl=${encodeURIComponent(`/results/${submissionId}`)}`}>
                                 <LogIn className="mr-2 h-3 w-3" />
                                 Log In
                               </Link>
